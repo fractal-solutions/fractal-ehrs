@@ -90,186 +90,186 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Calendar",
+      title: "Appointments",
       url: "#",
       icon: Calendar,
     },
     {
-      title: "Settings",
+      title: "Clinic Settings",
       url: "#",
       icon: Settings2,
     },
     {
-      title: "Templates",
+      title: "Patient Records",
       url: "#",
       icon: Blocks,
     },
     {
-      title: "Trash",
+      title: "Archive",
       url: "#",
       icon: Trash2,
     },
     {
-      title: "Help",
+      title: "Support",
       url: "#",
       icon: MessageCircleQuestion,
     },
   ],
   favorites: [
     {
-      name: "Project Management & Task Tracking",
+      name: "Dental Procedures & Treatment Plans",
+      url: "#",
+      emoji: "🦷",
+    },
+    {
+      name: "Oral Hygiene Tips & Guidelines",
+      url: "#",
+      emoji: "👨‍⚕️",
+    },
+    {
+      name: "Patient Communication & Follow-ups",
+      url: "#",
+      emoji: "📞",
+    },
+    {
+      name: "Clinic Inventory & Supplies Management",
+      url: "#",
+      emoji: "📦",
+    },
+    {
+      name: "Continuing Education & Training",
+      url: "#",
+      emoji: "🎓",
+    },
+    {
+      name: "Dental Industry News & Updates",
+      url: "#",
+      emoji: "📰",
+    },
+    {
+      name: "Financial Planning & Insurance Details",
+      url: "#",
+      emoji: "💼",
+    },
+    {
+      name: "Equipment Maintenance & Scheduling",
+      url: "#",
+      emoji: "🔧",
+    },
+    {
+      name: "Patient Reviews & Feedback Collection",
+      url: "#",
+      emoji: "📝",
+    },
+    {
+      name: "Daily Goals & Clinic Metrics",
       url: "#",
       emoji: "📊",
-    },
-    {
-      name: "Family Recipe Collection & Meal Planning",
-      url: "#",
-      emoji: "🍳",
-    },
-    {
-      name: "Fitness Tracker & Workout Routines",
-      url: "#",
-      emoji: "💪",
-    },
-    {
-      name: "Book Notes & Reading List",
-      url: "#",
-      emoji: "📚",
-    },
-    {
-      name: "Sustainable Gardening Tips & Plant Care",
-      url: "#",
-      emoji: "🌱",
-    },
-    {
-      name: "Language Learning Progress & Resources",
-      url: "#",
-      emoji: "🗣️",
-    },
-    {
-      name: "Home Renovation Ideas & Budget Tracker",
-      url: "#",
-      emoji: "🏠",
-    },
-    {
-      name: "Personal Finance & Investment Portfolio",
-      url: "#",
-      emoji: "💰",
-    },
-    {
-      name: "Movie & TV Show Watchlist with Reviews",
-      url: "#",
-      emoji: "🎬",
-    },
-    {
-      name: "Daily Habit Tracker & Goal Setting",
-      url: "#",
-      emoji: "✅",
     },
   ],
   workspaces: [
     {
-      name: "Personal Life Management",
-      emoji: "🏠",
+      name: "Patient Care",
+      emoji: "👨‍⚕️",
       pages: [
         {
-          name: "Daily Journal & Reflection",
+          name: "Patient Appointments & Scheduling",
           url: "#",
-          emoji: "📔",
+          emoji: "📅",
         },
         {
-          name: "Health & Wellness Tracker",
+          name: "Treatment Plans & Progress",
           url: "#",
-          emoji: "🍏",
+          emoji: "📈",
         },
         {
-          name: "Personal Growth & Learning Goals",
+          name: "Patient Education & Resources",
           url: "#",
-          emoji: "🌟",
+          emoji: "📚",
+        },
+      ],
+    },
+    {
+      name: "Clinic Administration",
+      emoji: "🏢",
+      pages: [
+        {
+          name: "Staff Schedules & Rosters",
+          url: "#",
+          emoji: "📋",
+        },
+        {
+          name: "Billing & Invoicing",
+          url: "#",
+          emoji: "💳",
+        },
+        {
+          name: "Policy & Procedure Manuals",
+          url: "#",
+          emoji: "📘",
         },
       ],
     },
     {
       name: "Professional Development",
-      emoji: "💼",
+      emoji: "🚀",
       pages: [
         {
-          name: "Career Objectives & Milestones",
+          name: "Dental Conferences & Workshops",
           url: "#",
-          emoji: "🎯",
+          emoji: "🗓️",
         },
         {
-          name: "Skill Acquisition & Training Log",
-          url: "#",
-          emoji: "🧠",
-        },
-        {
-          name: "Networking Contacts & Events",
+          name: "Networking Events & Opportunities",
           url: "#",
           emoji: "🤝",
         },
-      ],
-    },
-    {
-      name: "Creative Projects",
-      emoji: "🎨",
-      pages: [
         {
-          name: "Writing Ideas & Story Outlines",
+          name: "Skill Enhancement & Certifications",
           url: "#",
-          emoji: "✍️",
-        },
-        {
-          name: "Art & Design Portfolio",
-          url: "#",
-          emoji: "🖼️",
-        },
-        {
-          name: "Music Composition & Practice Log",
-          url: "#",
-          emoji: "🎵",
+          emoji: "🏅",
         },
       ],
     },
     {
-      name: "Home Management",
-      emoji: "🏡",
+      name: "Clinic Operations",
+      emoji: "🛠️",
       pages: [
         {
-          name: "Household Budget & Expense Tracking",
+          name: "Equipment Maintenance Logs",
           url: "#",
-          emoji: "💰",
+          emoji: "🔍",
         },
         {
-          name: "Home Maintenance Schedule & Tasks",
+          name: "Supply Orders & Inventory Management",
           url: "#",
-          emoji: "🔧",
+          emoji: "📊",
         },
         {
-          name: "Family Calendar & Event Planning",
+          name: "Safety Protocols & Compliance",
           url: "#",
-          emoji: "📅",
+          emoji: "🛡️",
         },
       ],
     },
     {
-      name: "Travel & Adventure",
-      emoji: "🧳",
+      name: "Patient Engagement",
+      emoji: "💬",
       pages: [
         {
-          name: "Trip Planning & Itineraries",
+          name: "Marketing Campaigns & Outreach",
           url: "#",
-          emoji: "🗺️",
+          emoji: "📢",
         },
         {
-          name: "Travel Bucket List & Inspiration",
+          name: "Community Events & Health Fairs",
           url: "#",
-          emoji: "🌎",
+          emoji: "🎉",
         },
         {
-          name: "Travel Journal & Photo Gallery",
+          name: "Social Media & Online Presence",
           url: "#",
-          emoji: "📸",
+          emoji: "🌐",
         },
       ],
     },

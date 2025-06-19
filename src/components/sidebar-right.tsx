@@ -105,6 +105,7 @@ function SortablePatientCard({ patient, status, ...props }: { patient: any; stat
         opacity: isDragging ? 0.5 : 1,
         cursor: "grab",
       }}
+      className="py-1"
       {...attributes}
       {...listeners}
     >

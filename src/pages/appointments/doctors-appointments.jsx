@@ -31,40 +31,40 @@ function generateTimeSlots(startHour, endHour, slotMinutes) {
   }
   return slots
 }
-const initialAppointments = {}
 
-for (const doctor of doctors) {
-  initialAppointments[doctor.id] = []
-
-  const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
-  const slotCount = slots.length
-  const usedSlots = new Set()
-
-  for (let i = 0; i < 5; i++) {
-    let slotIndex
-    do {
-      slotIndex = Math.floor(Math.random() * slotCount)
-    } while (usedSlots.has(slotIndex))
-    usedSlots.add(slotIndex)
-
-    const slot = slots[slotIndex]
-    const duration = Math.floor(Math.random() * 4 + 1) * SLOT_MINUTES
-
-    initialAppointments[doctor.id].push({
-      time: format(slot, "HH:mm"),
-      patient: `${doctor.name} Patient`,
-      status: ["confirmed", "pending"][Math.floor(Math.random() * 2)],
-      date: format(new Date(), "yyyy-MM-dd"),
-      duration,
-      description: "Random reason",
-    })
-  }
+const initialAppointments = {
+  "dr-andrews": [
+    { time: "08:00", patient: "John Doe", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Checkup" },
+    { time: "09:00", patient: "Jane Smith", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Consultation" },
+    { time: "10:30", patient: "Tom Brown", status: "cancelled", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Dental exam" },
+    { time: "11:45", patient: "Sarah Lee", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Surgery" },
+    { time: "13:00", patient: "Michael Davis", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "General checkup" },
+    { time: "14:15", patient: "Emily Johnson", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Obstetrics" },
+    { time: "15:30", patient: "William Taylor", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Cardiology" },
+  ],
+  "dr-martinez": [
+    { time: "08:30", patient: "Sarah Wilson", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Flu symptoms" },
+    { time: "09:15", patient: "John Doe", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "General checkup" },
+    { time: "10:00", patient: "Jane Smith", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Surgery" },
+    { time: "11:15", patient: "Michael Davis", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Obstetrics" },
+    { time: "12:30", patient: "Emily Johnson", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Cardiology" },
+    { time: "13:45", patient: "William Taylor", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Dental exam" },
+    { time: "15:00", patient: "Tom Brown", status: "cancelled", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "General checkup" },
+  ],
+  "dr-smith": [
+    { time: "09:00", patient: "Emily Clark", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Follow-up" },
+    { time: "10:15", patient: "Sarah Lee", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Surgery" },
+    { time: "11:30", patient: "John Doe", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Obstetrics" },
+    { time: "12:45", patient: "Michael Davis", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Cardiology" },
+    { time: "14:00", patient: "William Taylor", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Dental exam" },
+    { time: "15:15", patient: "Jane Smith", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "General checkup" },
+  ],
 }
 
 function statusColor(status) {
   switch (status) {
     case "confirmed":
-      return "success"
+      return "default"
     case "pending":
       return "secondary"
     case "cancelled":
@@ -76,6 +76,27 @@ function statusColor(status) {
 
 function getSlotEnd(slot, duration) {
   return addMinutes(slot, duration)
+}
+
+const bookingColors = [
+  "bg-[#bfcad6]", // dull blue-gray
+  "bg-[#d6cfc2]", // dull beige
+  "bg-[#c2d6c3]", // dull green
+  "bg-[#d6c2c2]", // dull pink
+  "bg-[#d6d3c2]", // dull yellow
+  "bg-[#c2d6d6]", // dull teal
+  "bg-[#d6c2d3]", // dull purple
+]
+
+function getBookingColor(booking, doctorId) {
+  // Use doctorId or patient name for color assignment
+  // For more variety, you can hash patient name or combine doctorId+time
+  const idx = doctorId
+    ? doctors.findIndex(d => d.id === doctorId)
+    : 0
+  // Optionally, use patient name for more variety:
+  // const idx = booking.patient ? booking.patient.charCodeAt(0) % bookingColors.length : 0
+  return bookingColors[idx % bookingColors.length]
 }
 
 export default function Appointments() {
@@ -100,7 +121,7 @@ export default function Appointments() {
   const [selectedTab, setSelectedTab] = useState("timeline")
 
   const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
-  const selectedDateStr = format(selected, "yyyy-MM-dd")
+  const selectedDateStr = format(selected && selected instanceof Date && !isNaN(selected) ? selected : new Date(), "yyyy-MM-dd")
   const [scrollKey, setScrollKey] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
 
@@ -302,11 +323,12 @@ export default function Appointments() {
     <div className="flex flex-col gap-6 md:flex-row">
       {/* Calendar Section */}
       <div className="md:w-1/4 min-w-[420px]">
+        <h3 className="mx-2 scroll-m-20 text-2xl font-semibold tracking-tight">Appointments</h3>
         <Calendar
           mode="single"
           selected={selected}
           onSelect={setSelected}
-          className="rounded-lg border shadow-sm scale-100 m-1 mt-0 w-full"
+          className="rounded-lg border shadow-sm scale-100 m-1 mt-7 w-full"
         />
       </div>
 
@@ -626,13 +648,15 @@ export default function Appointments() {
 // Drag-and-drop wrappers
 function DraggableBooking({ id, booking, onRemove, onEdit, style }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id })
+  // Extract doctorId from id (format: doctorId|time)
+  const doctorId = id.split("|")[0]
+  const colorClass = getBookingColor(booking, doctorId)
   return (
     <div
       ref={setNodeRef}
-      className={`relative bg-primary/80 text-white rounded flex items-center justify-between px-2 py-1 cursor-move shadow-md transition-opacity ${isDragging ? "opacity-60" : ""}`}
+      className={`relative ${colorClass} text-black rounded flex items-center justify-between px-2 py-2 mx-[0.5px] cursor-move shadow-md transition-opacity ${isDragging ? "opacity-60" : ""}`}
       style={{ minHeight: 48, ...style, zIndex: 2 }}
       onClick={e => {
-        // Only open edit dialog if not clicking the X
         if (e.target.closest("button")) return
         onEdit()
       }}
@@ -648,12 +672,12 @@ function DraggableBooking({ id, booking, onRemove, onEdit, style }) {
         <Badge className="ml-2" variant={statusColor(booking.status)}>
           {booking.duration} min
         </Badge>
-        <span 
-            {...attributes}
-            {...listeners} 
-            className="ml-2 text-xs"
+        <span
+          {...attributes}
+          {...listeners}
+          className="ml-2 text-xs"
         >
-            {booking.description}
+          {booking.description}
         </span>
       </div>
       <Button
