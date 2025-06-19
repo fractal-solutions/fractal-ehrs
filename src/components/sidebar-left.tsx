@@ -13,6 +13,9 @@ import {
   Settings2,
   Sparkles,
   Trash2,
+  ListChecks,
+  Banknote,
+  User2,
 } from "lucide-react"
 
 import { NavFavorites } from "@/components/nav-favorites"
@@ -31,7 +34,7 @@ import {
 const data = {
   teams: [
     {
-      name: "Acme Inc",
+      name: "Bethany Dental Clinic",
       logo: Command,
       plan: "Enterprise",
     },
@@ -59,15 +62,30 @@ const data = {
     },
     {
       title: "Home",
-      url: "#",
+      url: "/",
       icon: Home,
       isActive: true,
     },
     {
-      title: "Inbox",
-      url: "#",
-      icon: Inbox,
+      title: "Appointments",
+      url: "/appointments",
+      icon: Calendar,
       badge: "10",
+    },
+    {
+      title: "Patients",
+      url: "/patients",
+      icon: User2,
+    },
+    {
+      title: "Billing",
+      url: "/billing",
+      icon: Banknote,
+    },
+    {
+      title: "Reports",
+      url: "/reports",
+      icon: ListChecks,
     },
   ],
   navSecondary: [
