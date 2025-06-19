@@ -73,6 +73,14 @@ export default function Appointments() {
   const [duration, setDuration] = useState(15)
   const [description, setDescription] = useState("")
 
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editBooking, setEditBooking] = useState(null)
+  const [editDoctorId, setEditDoctorId] = useState(null)
+  const [editPatientName, setEditPatientName] = useState("")
+  const [editDuration, setEditDuration] = useState(15)
+  const [editDescription, setEditDescription] = useState("")
+  const [editStatus, setEditStatus] = useState("pending")
+
   const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
   const selectedDateStr = format(selected, "yyyy-MM-dd")
 
@@ -97,18 +105,16 @@ export default function Appointments() {
   }
 
   // Check if the slot range is available (no overlap)
-  function isSlotRangeAvailable(doctorId, slot, duration) {
+  function isSlotRangeAvailable(doctorId, slot, duration, excludeBooking = null) {
     const slotStart = slot
     const slotEnd = addMinutes(slot, duration)
     return !(appointments[doctorId] || []).some(appt => {
-      if (appt.date !== selectedDateStr) return false
-      const [h, m] = appt.time.split(":").map(Number)
-      const apptStart = setMinutes(setHours(selected, h), m)
-      const apptEnd = addMinutes(apptStart, appt.duration || 15)
-      // Overlap check
-      return (
-        (slotStart < apptEnd && slotEnd > apptStart)
-      )
+        if (appt.date !== selectedDateStr) return false
+        if (excludeBooking && appt === excludeBooking) return false
+        const [h, m] = appt.time.split(":").map(Number)
+        const apptStart = setMinutes(setHours(selected, h), m)
+        const apptEnd = addMinutes(apptStart, appt.duration || 15)
+        return (slotStart < apptEnd && slotEnd > apptStart)
     })
   }
 
@@ -149,19 +155,63 @@ export default function Appointments() {
     handleDialogClose()
   }
 
-  function handleRemoveBooking(doctorId, slot) {
+  function handleRemoveBooking(doctorId, booking) {
+    console.log("Removing booking:", booking)
     setAppointments((prev) => ({
-      ...prev,
-      [doctorId]: (prev[doctorId] || []).filter(
-        (appt) => {
-          const [h, m] = appt.time.split(":").map(Number)
-          const apptStart = setMinutes(setHours(selected, h), m)
-          return !(isWithinInterval(slot, { start: apptStart, end: addMinutes(apptStart, appt.duration || 15) }))
-        }
-      ),
+        ...prev,
+        [doctorId]: (prev[doctorId] || []).filter(
+        (appt) =>
+            !(
+            appt.time === booking.time &&
+            appt.date === booking.date &&
+            appt.patient === booking.patient
+            )
+        ),
     }))
     setRemoveDialog({ open: false, booking: null, doctorId: null })
-  }
+    }
+
+    function handleEditBookingOpen(doctorId, booking) {
+        setEditDoctorId(doctorId)
+        setEditBooking(booking)
+        setEditPatientName(booking.patient)
+        setEditDuration(booking.duration)
+        setEditDescription(booking.description)
+        setEditStatus(booking.status)
+        setEditDialogOpen(true)
+    }
+
+    function handleEditBookingClose() {
+        setEditDialogOpen(false)
+        setEditBooking(null)
+        setEditDoctorId(null)
+        setEditPatientName("")
+        setEditDuration(15)
+        setEditDescription("")
+        setEditStatus("pending")
+    }
+
+    function handleEditBookingSave() {
+        if (!editPatientName.trim() || !editDuration || !editBooking) return
+        // Check for overlap (excluding this booking)
+        const slot = setMinutes(setHours(selected, Number(editBooking.time.split(":")[0])), Number(editBooking.time.split(":")[1]))
+        if (!isSlotRangeAvailable(editDoctorId, slot, editDuration, editBooking)) return
+        setAppointments((prev) => ({
+        ...prev,
+        [editDoctorId]: (prev[editDoctorId] || []).map(appt =>
+            appt === editBooking
+            ? {
+                ...appt,
+                patient: editPatientName.trim(),
+                duration: editDuration,
+                description: editDescription.trim(),
+                status: editStatus,
+                }
+            : appt
+        ),
+        }))
+        handleEditBookingClose()
+    }
 
   // Drag-and-drop logic
   function handleDragEnd(event) {
@@ -195,7 +245,7 @@ export default function Appointments() {
   return (
     <div className="flex flex-col gap-6 md:flex-row">
       {/* Calendar Section */}
-      <div className="md:w-1/4 min-w-[260px]">
+      <div className="md:w-1/4 min-w-[420px]">
         <Calendar
           mode="single"
           selected={selected}
@@ -251,7 +301,8 @@ export default function Appointments() {
                                 <DraggableBooking
                                     id={`${doc.id}|${booking.time}`}
                                     booking={booking}
-                                    onRemove={() => setRemoveDialog({ open: true, booking, doctorId: doc.id })}
+                                    onRemove={() => handleRemoveBooking(doc.id, booking)}
+                                    onEdit={() => handleEditBookingOpen(doc.id, booking)}
                                     style={{ height }}
                                 />
                                 </DroppableSlot>
@@ -348,51 +399,125 @@ export default function Appointments() {
         </DialogContent>
       </Dialog>
 
-      {/* Remove Confirmation Dialog */}
-      <Dialog open={removeDialog.open} onOpenChange={open => setRemoveDialog({ ...removeDialog, open })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Remove Booking</DialogTitle>
-          </DialogHeader>
-          <div>
-            Are you sure you want to remove this booking for <b>{removeDialog.booking?.patient}</b>?
-          </div>
-          <DialogFooter>
-            <Button
-              variant="destructive"
-              onClick={() => handleRemoveBooking(removeDialog.doctorId, removeDialog.booking && setMinutes(setHours(selected, Number(removeDialog.booking.time.split(":")[0])), Number(removeDialog.booking.time.split(":")[1])))}
-            >
-              Remove
-            </Button>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Edit Booking Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent>
+            <DialogHeader>
+                <DialogTitle>
+                Edit Booking for {editDoctorId && doctors.find(d => d.id === editDoctorId)?.name}
+                </DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-4 py-2">
+                <div>
+                <span className="font-semibold">Time: </span>
+                {editBooking && editBooking.time}
+                </div>
+                <div>
+                <span className="font-semibold">Duration: </span>
+                <select
+                    className="border rounded px-2 py-1 ml-2"
+                    value={editDuration}
+                    onChange={e => setEditDuration(Number(e.target.value))}
+                >
+                    {[15, 30, 45, 60].map(mins => (
+                    <option key={mins} value={mins}>{mins} min</option>
+                    ))}
+                </select>
+                </div>
+                <Input
+                placeholder="Patient name"
+                value={editPatientName}
+                onChange={e => setEditPatientName(e.target.value)}
+                onKeyDown={e => {
+                    if (e.key === "Enter") handleEditBookingSave()
+                }}
+                />
+                <Input
+                placeholder="Reason for visit"
+                value={editDescription}
+                onChange={e => setEditDescription(e.target.value)}
+                />
+                <div>
+                <span className="font-semibold">Status: </span>
+                <select
+                    className="border rounded px-2 py-1 ml-2"
+                    value={editStatus}
+                    onChange={e => setEditStatus(e.target.value)}
+                >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                </div>
+                {!isSlotRangeAvailable(editDoctorId, editBooking && setMinutes(setHours(selected, Number(editBooking.time.split(":")[0])), Number(editBooking.time.split(":")[1])), editDuration, editBooking) && (
+                <div className="text-sm text-destructive">
+                    Selected time range overlaps with another booking.
+                </div>
+                )}
+            </div>
+            <DialogFooter>
+                <Button
+                onClick={handleEditBookingSave}
+                disabled={
+                    !editPatientName.trim() ||
+                    !editDuration ||
+                    !editBooking ||
+                    !isSlotRangeAvailable(editDoctorId, editBooking && setMinutes(setHours(selected, Number(editBooking.time.split(":")[0])), Number(editBooking.time.split(":")[1])), editDuration, editBooking)
+                }
+                >
+                Save Changes
+                </Button>
+                <DialogClose asChild>
+                <Button variant="outline" type="button">
+                    Cancel
+                </Button>
+                </DialogClose>
+            </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
     </div>
   )
 }
 
 // Drag-and-drop wrappers
-function DraggableBooking({ id, booking, onRemove, style }) {
+function DraggableBooking({ id, booking, onRemove, onEdit, style }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id })
   return (
     <div
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
       className={`relative bg-primary/80 text-white rounded flex items-center justify-between px-2 py-1 cursor-move shadow-md transition-opacity ${isDragging ? "opacity-60" : ""}`}
       style={{ minHeight: 48, ...style, zIndex: 2 }}
+      onClick={e => {
+        // Only open edit dialog if not clicking the X
+        if (e.target.closest("button")) return
+        onEdit()
+      }}
     >
-      <div>
-        <span className="font-semibold">{booking.patient}</span>
+      <div className="flex items-center gap-2">
+        <span
+          {...attributes}
+          {...listeners}
+          className="font-semibold cursor-move select-none"
+        >
+          {booking.patient}
+        </span>
         <Badge className="ml-2" variant={statusColor(booking.status)}>
           {booking.duration} min
         </Badge>
         <span className="ml-2 text-xs">{booking.description}</span>
       </div>
-      <Button size="xs" variant="ghost" onClick={onRemove}>✕</Button>
+      <Button
+        size="xs"
+        variant="ghost"
+        onClick={e => {
+          e.stopPropagation();
+          e.preventDefault();
+          onRemove();
+        }}
+      >
+        ✕
+      </Button>
     </div>
   )
 }
