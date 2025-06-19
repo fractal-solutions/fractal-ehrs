@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-const APPOINTMENTS_STORAGE_KEY = "fractal-ehrs-appointments";
+const APPOINTMENTS_STORAGE_KEY = "fractal-ehrs-appointments"
+const PATIENTS_STORAGE_KEY = "fractal-ehrs-patients"
 const doctors = [
   { id: "dr-andrews", name: "Dr. Andrews" },
   { id: "dr-martinez", name: "Dr. Martinez" },
@@ -21,6 +22,15 @@ const doctors = [
 const START_HOUR = 7
 const END_HOUR = 19
 const SLOT_MINUTES = 15
+
+function getStoredPatients() {
+  try {
+    const stored = localStorage.getItem(PATIENTS_STORAGE_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
 
 function generateTimeSlots(startHour, endHour, slotMinutes) {
   const slots = []
@@ -128,6 +138,8 @@ export default function Appointments() {
   const selectedDateStr = format(selected && selected instanceof Date && !isNaN(selected) ? selected : new Date(), "yyyy-MM-dd")
   const [scrollKey, setScrollKey] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
+  const [patients, setPatients] = useState(getStoredPatients())
+  const [patientSearch, setPatientSearch] = useState("")
 
   // Find a booking that covers this slot (including multi-slot bookings)
   function getBookingForSlot(doctorId, slot) {
@@ -533,15 +545,41 @@ export default function Appointments() {
                 ))}
               </select>
             </div>
-            <Input
-              autoFocus
-              placeholder="Patient name"
-              value={patientName}
-              onChange={e => setPatientName(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") handleAddBooking()
-              }}
-            />
+            {/* Patient name search */}
+            <div>
+              <Input
+                placeholder="Search or enter patient name"
+                value={patientSearch || patientName}
+                onChange={e => {
+                  setPatientSearch(e.target.value)
+                  setPatientName(e.target.value)
+                }}
+                autoFocus
+              />
+              {patientSearch.length > 0 && (
+                <div className="border rounded bg-background mt-1 max-h-32 overflow-y-auto shadow">
+                  {patients
+                    .filter(
+                      p =>
+                        p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
+                        p.mobile?.includes(patientSearch)
+                    )
+                    .slice(0, 5)
+                    .map(p => (
+                      <div
+                        key={p.id}
+                        className="px-3 py-1 hover:bg-muted cursor-pointer text-sm"
+                        onClick={() => {
+                          setPatientName(p.name)
+                          setPatientSearch("")
+                        }}
+                      >
+                        {p.name} <span className="text-xs text-muted-foreground">({p.mobile})</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
             <Input
               placeholder="Reason for visit"
               value={description}
