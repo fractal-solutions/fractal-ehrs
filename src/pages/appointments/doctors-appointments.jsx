@@ -31,18 +31,34 @@ function generateTimeSlots(startHour, endHour, slotMinutes) {
   }
   return slots
 }
+const initialAppointments = {}
 
-const initialAppointments = {
-  "dr-andrews": [
-    { time: "09:00", patient: "John Doe", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 30, description: "Checkup" },
-    { time: "10:30", patient: "Jane Smith", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Consultation" },
-  ],
-  "dr-martinez": [
-    { time: "09:30", patient: "Sarah Wilson", status: "confirmed", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Flu symptoms" },
-  ],
-  "dr-smith": [
-    { time: "10:00", patient: "Emily Clark", status: "pending", date: format(new Date(), "yyyy-MM-dd"), duration: 15, description: "Follow-up" },
-  ],
+for (const doctor of doctors) {
+  initialAppointments[doctor.id] = []
+
+  const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
+  const slotCount = slots.length
+  const usedSlots = new Set()
+
+  for (let i = 0; i < 5; i++) {
+    let slotIndex
+    do {
+      slotIndex = Math.floor(Math.random() * slotCount)
+    } while (usedSlots.has(slotIndex))
+    usedSlots.add(slotIndex)
+
+    const slot = slots[slotIndex]
+    const duration = Math.floor(Math.random() * 4 + 1) * SLOT_MINUTES
+
+    initialAppointments[doctor.id].push({
+      time: format(slot, "HH:mm"),
+      patient: `${doctor.name} Patient`,
+      status: ["confirmed", "pending"][Math.floor(Math.random() * 2)],
+      date: format(new Date(), "yyyy-MM-dd"),
+      duration,
+      description: "Random reason",
+    })
+  }
 }
 
 function statusColor(status) {
@@ -86,6 +102,7 @@ export default function Appointments() {
   const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
   const selectedDateStr = format(selected, "yyyy-MM-dd")
   const [scrollKey, setScrollKey] = useState(0)
+  const [activeDrag, setActiveDrag] = useState(null)
 
   // Find a booking that covers this slot (including multi-slot bookings)
   function getBookingForSlot(doctorId, slot) {
@@ -253,6 +270,7 @@ export default function Appointments() {
 
   // Drag-and-drop logic
   function handleDragEnd(event) {
+    setActiveDrag(null)
     const { active, over } = event
     if (!active || !over) return
     const [fromDoctor, fromTime] = active.id.split("|")
@@ -303,7 +321,7 @@ export default function Appointments() {
           </TabsList>
           <TabsContent value="timeline">
             <ScrollArea key={scrollKey} className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
-              <DndContext onDragEnd={handleDragEnd}>
+              <DndContext onDragStart={event => setActiveDrag(event.active.id)} onDragEnd={handleDragEnd}>
                 <div
                   className="grid"
                   style={{
@@ -381,7 +399,7 @@ export default function Appointments() {
           {doctors.map(doc => (
             <TabsContent key={doc.id} value={doc.id}>
                 <ScrollArea key={scrollKey} className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
-                <DndContext onDragEnd={handleDragEnd}>
+                <DndContext onDragStart={event => setActiveDrag(event.active.id)} onDragEnd={handleDragEnd}>
                     <div
                     className="grid"
                     style={{

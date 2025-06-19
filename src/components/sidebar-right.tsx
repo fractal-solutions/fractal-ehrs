@@ -11,6 +11,10 @@ import {
   ArrowRight,
 } from "lucide-react"
 
+import { DndContext, closestCenter } from "@dnd-kit/core"
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+
 import { NavUser } from "@/components/nav-user"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,7 +37,7 @@ import {
 } from "@/components/ui/sidebar"
 
 // Sample data
-const data = {
+const initialData = {
   user: {
     name: "Dr. Smith",
     email: "dr.smith@hospital.com",
@@ -88,6 +92,25 @@ const data = {
       condition: "Sprained Ankle",
     },
   ],
+}
+
+function SortablePatientCard({ patient, status, ...props }: { patient: any; status: "waiting" | "consulting" }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: patient.id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        cursor: "grab",
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <PatientCard patient={patient} status={status} />
+    </div>
+  )
 }
 
 function PatientCard({
@@ -196,6 +219,23 @@ function PatientCard({
 export function SidebarRight({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
+  const [data, setData] = React.useState(initialData)
+
+  // Drag-and-drop reorder handler
+  function handleDragEnd(event: any) {
+    const { active, over } = event
+    if (active?.id !== over?.id) {
+      setData((prev) => {
+        const oldIndex = prev.waitingPatients.findIndex((p) => p.id === active.id)
+        const newIndex = prev.waitingPatients.findIndex((p) => p.id === over.id)
+        return {
+          ...prev,
+          waitingPatients: arrayMove(prev.waitingPatients, oldIndex, newIndex),
+        }
+      })
+    }
+  }
+
   return (
     <Sidebar
       collapsible="none"
@@ -220,13 +260,20 @@ export function SidebarRight({
                   No patients waiting.
                 </div>
               )}
-              {data.waitingPatients.map((patient) => (
-                <PatientCard
-                  key={patient.id}
-                  patient={patient}
-                  status="waiting"
-                />
-              ))}
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext
+                  items={data.waitingPatients.map((p) => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {data.waitingPatients.map((patient) => (
+                    <SortablePatientCard
+                      key={patient.id}
+                      patient={patient}
+                      status="waiting"
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
           </SidebarGroup>
 
