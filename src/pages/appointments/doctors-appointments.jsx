@@ -654,7 +654,7 @@ function DraggableBooking({ id, booking, onRemove, onEdit, style }) {
   return (
     <div
       ref={setNodeRef}
-      className={`relative ${colorClass} text-black rounded flex items-center justify-between px-2 py-2 mx-[0.5px] cursor-move shadow-md transition-opacity ${isDragging ? "opacity-60" : ""}`}
+      className={`relative ${colorClass} text-black rounded flex items-center justify-between px-2 py-2 mr-[0.5px] cursor-move shadow-md transition-opacity ${isDragging ? "opacity-60" : ""}`}
       style={{ minHeight: 48, ...style, zIndex: 2 }}
       onClick={e => {
         if (e.target.closest("button")) return
