@@ -12,9 +12,10 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { BrowserRouter, Routes, Route, Router } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Router } from 'react-router-dom'
 import Appointments from "@/pages/appointments/doctors-appointments"
- 
+import PatientManagement from "@/pages/patients/patient-management"
+
 
 export default function Page() {
   return (
@@ -47,7 +48,7 @@ export default function Page() {
           <div className="bg-muted/50 mx-auto h-[100vh] w-full max-w-3xl rounded-xl" /> */}
           <Routes>
             <Route path="/" element={<div className="text-center text-2xl">Welcome to Fractal EHRS</div>} />
-            <Route path="/patients" element={<div className="text-center text-2xl">Patient Management</div>} />
+            <Route path="/patients" element={<PatientManagement />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/billing" element={<div className="text-center text-2xl">Billing and Insurance</div>} />
             <Route path="/reports" element={<div className="text-center text-2xl">Reports and Analytics</div>} />

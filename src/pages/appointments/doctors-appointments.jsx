@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+const APPOINTMENTS_STORAGE_KEY = "fractal-ehrs-appointments";
 const doctors = [
   { id: "dr-andrews", name: "Dr. Andrews" },
   { id: "dr-martinez", name: "Dr. Martinez" },
@@ -101,7 +102,10 @@ function getBookingColor(booking, doctorId) {
 
 export default function Appointments() {
   const [selected, setSelected] = useState(new Date())
-  const [appointments, setAppointments] = useState(initialAppointments)
+  const [appointments, setAppointments] = useState(() => {
+    const saved = localStorage.getItem(APPOINTMENTS_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : initialAppointments;
+  });
   const [dialogOpen, setDialogOpen] = useState(false)
   const [removeDialog, setRemoveDialog] = useState({ open: false, booking: null, doctorId: null })
   const [bookingSlot, setBookingSlot] = useState(null)
@@ -288,6 +292,11 @@ export default function Appointments() {
         }, 0);
         // eslint-disable-next-line
     }, [scrollKey]);
+
+    // Save to localStorage whenever appointments change:
+    useEffect(() => {
+    localStorage.setItem(APPOINTMENTS_STORAGE_KEY, JSON.stringify(appointments));
+    }, [appointments]);
 
   // Drag-and-drop logic
   function handleDragEnd(event) {
