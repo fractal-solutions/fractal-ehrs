@@ -81,6 +81,8 @@ export default function Appointments() {
   const [editDescription, setEditDescription] = useState("")
   const [editStatus, setEditStatus] = useState("pending")
 
+  const [selectedTab, setSelectedTab] = useState("timeline")
+
   const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
   const selectedDateStr = format(selected, "yyyy-MM-dd")
 
@@ -256,9 +258,12 @@ export default function Appointments() {
 
       {/* Timeline Grid */}
       <div className="flex-1 overflow-x-auto">
-        <Tabs value="timeline">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
           <TabsList className="mb-4">
             <TabsTrigger value="timeline">Timeline View</TabsTrigger>
+            {doctors.map(doc => (
+              <TabsTrigger key={doc.id} value={doc.id}>{doc.name}</TabsTrigger>
+            ))}
           </TabsList>
           <TabsContent value="timeline">
             <ScrollArea className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
@@ -317,6 +322,7 @@ export default function Appointments() {
                                     variant="outline"
                                     onClick={() => handleDialogOpen(doc.id, slot)}
                                     disabled={!isSlotRangeAvailable(doc.id, slot, duration)}
+                                    className="w-2/3"
                                 >
                                     Book
                                 </Button>
@@ -331,6 +337,75 @@ export default function Appointments() {
               </DndContext>
             </ScrollArea>
           </TabsContent>
+          {/* Individual Doctor Views */}
+          {doctors.map(doc => (
+            <TabsContent key={doc.id} value={doc.id}>
+                <ScrollArea className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
+                <DndContext onDragEnd={handleDragEnd}>
+                    <div
+                    className="grid"
+                    style={{
+                        gridTemplateColumns: `100px minmax(180px,1fr)`,
+                        minWidth: 280,
+                    }}
+                    >
+                    {/* Header */}
+                    <div />
+                    <div className="font-bold text-center py-2 bg-muted sticky top-0 z-10 border-b border-r">
+                        {doc.name}
+                    </div>
+                    {/* Time slots and bookings */}
+                    {slots.map((slot, rowIdx) => (
+                        <React.Fragment key={rowIdx}>
+                        {/* Time column */}
+                        <div className="text-right pr-2 py-1 text-xs bg-background sticky left-0 z-10 border-b border-r font-mono">
+                            {format(slot, "hh:mm a")}
+                        </div>
+                        {/* Doctor's column */}
+                        {(() => {
+                            const booking = getBookingForSlot(doc.id, slot)
+                            if (booking && !isBookingStart(doc.id, slot)) {
+                            return <div style={{ height: 0 }} />
+                            }
+                            if (booking) {
+                            const slotCount = (booking.duration || 15) / SLOT_MINUTES
+                            const height = slotCount * 48
+                            return (
+                                <DroppableSlot id={`${doc.id}|${format(slot, "HH:mm")}`}>
+                                <DraggableBooking
+                                    id={`${doc.id}|${booking.time}`}
+                                    booking={booking}
+                                    onRemove={() => handleRemoveBooking(doc.id, booking)}
+                                    onEdit={() => handleEditBookingOpen(doc.id, booking)}
+                                    style={{ height }}
+                                />
+                                </DroppableSlot>
+                            )
+                            }
+                            // Empty slot
+                            return (
+                            <DroppableSlot id={`${doc.id}|${format(slot, "HH:mm")}`}>
+                                <div className="flex items-center justify-center h-12 border-b border-r">
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => handleDialogOpen(doc.id, slot)}
+                                    disabled={!isSlotRangeAvailable(doc.id, slot, duration)}
+                                    className="w-2/3"
+                                >
+                                    Book
+                                </Button>
+                                </div>
+                            </DroppableSlot>
+                            )
+                        })()}
+                        </React.Fragment>
+                    ))}
+                    </div>
+                </DndContext>
+                </ScrollArea>
+            </TabsContent>
+            ))}
         </Tabs>
       </div>
 
@@ -505,7 +580,13 @@ function DraggableBooking({ id, booking, onRemove, onEdit, style }) {
         <Badge className="ml-2" variant={statusColor(booking.status)}>
           {booking.duration} min
         </Badge>
-        <span className="ml-2 text-xs">{booking.description}</span>
+        <span 
+            {...attributes}
+            {...listeners} 
+            className="ml-2 text-xs"
+        >
+            {booking.description}
+        </span>
       </div>
       <Button
         size="xs"
@@ -515,6 +596,7 @@ function DraggableBooking({ id, booking, onRemove, onEdit, style }) {
           e.preventDefault();
           onRemove();
         }}
+        className="absolute top-1 right-1 p-1 h-4"
       >
         ✕
       </Button>
