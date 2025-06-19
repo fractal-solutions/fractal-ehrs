@@ -228,46 +228,54 @@ export default function Appointments() {
                     </div>
                   ))}
                   {/* Time slots and bookings */}
-                  {slots.map((slot, rowIdx) => (
-                    <React.Fragment key={rowIdx}>
-                      {/* Time column */}
-                      <div className="text-right pr-2 py-1 text-xs bg-background sticky left-0 z-10 border-b border-r font-mono">
-                        {format(slot, "hh:mm a")}
-                      </div>
-                      {doctors.map((doc, colIdx) => {
-                        const booking = getBookingForSlot(doc.id, slot)
-                        // Only render the booking at its start slot, skip rendering for covered slots
-                        if (booking && !isBookingStart(doc.id, slot)) return <div key={colIdx} className="border-b border-r h-12" />
-                        if (booking) {
-                          // Draggable booking block
-                          return (
+                  {slots.map((slot, rowIdx) => {
+                    return (
+                        <React.Fragment key={rowIdx}>
+                        {/* Time column */}
+                        <div className="text-right pr-2 py-1 text-xs bg-background sticky left-0 z-10 border-b border-r font-mono">
+                            {format(slot, "hh:mm a")}
+                        </div>
+                        {doctors.map((doc, colIdx) => {
+                            const booking = getBookingForSlot(doc.id, slot)
+                            // Only render the booking at its start slot, skip rendering for covered slots
+                            if (booking && !isBookingStart(doc.id, slot)) {
+                            // Skip covered slots
+                            return <div key={colIdx} style={{ height: 0 }} />
+                            }
+                            if (booking) {
+                            // Calculate height
+                            const slotCount = (booking.duration || 15) / SLOT_MINUTES
+                            const height = slotCount * 48 // 48px per slot
+                            return (
+                                <DroppableSlot key={colIdx} id={`${doc.id}|${format(slot, "HH:mm")}`}>
+                                <DraggableBooking
+                                    id={`${doc.id}|${booking.time}`}
+                                    booking={booking}
+                                    onRemove={() => setRemoveDialog({ open: true, booking, doctorId: doc.id })}
+                                    style={{ height }}
+                                />
+                                </DroppableSlot>
+                            )
+                            }
+                            // Empty slot
+                            return (
                             <DroppableSlot key={colIdx} id={`${doc.id}|${format(slot, "HH:mm")}`}>
-                              <DraggableBooking
-                                id={`${doc.id}|${booking.time}`}
-                                booking={booking}
-                                onRemove={() => setRemoveDialog({ open: true, booking, doctorId: doc.id })}
-                              />
+                                <div className="flex items-center justify-center h-12 border-b border-r">
+                                <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => handleDialogOpen(doc.id, slot)}
+                                    disabled={!isSlotRangeAvailable(doc.id, slot, duration)}
+                                >
+                                    Book
+                                </Button>
+                                </div>
                             </DroppableSlot>
-                          )
-                        }
-                        // Empty slot
-                        return (
-                          <DroppableSlot key={colIdx} id={`${doc.id}|${format(slot, "HH:mm")}`}>
-                            <div className="flex items-center justify-center h-12 border-b border-r">
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                onClick={() => handleDialogOpen(doc.id, slot)}
-                                disabled={!isSlotRangeAvailable(doc.id, slot, duration)}
-                              >
-                                Book
-                              </Button>
-                            </div>
-                          </DroppableSlot>
-                        )
-                      })}
-                    </React.Fragment>
-                  ))}
+                            )
+                        })}
+                        </React.Fragment>
+                    )
+                    })}
                 </div>
               </DndContext>
             </ScrollArea>
@@ -367,15 +375,15 @@ export default function Appointments() {
 }
 
 // Drag-and-drop wrappers
-function DraggableBooking({ id, booking, onRemove }) {
+function DraggableBooking({ id, booking, onRemove, style }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id })
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`relative bg-primary/80 text-white rounded flex items-center justify-between px-2 py-1 h-12 cursor-move shadow-md transition-opacity ${isDragging ? "opacity-60" : ""}`}
-      style={{ minHeight: 48, zIndex: 2 }}
+      className={`relative bg-primary/80 text-white rounded flex items-center justify-between px-2 py-1 cursor-move shadow-md transition-opacity ${isDragging ? "opacity-60" : ""}`}
+      style={{ minHeight: 48, ...style, zIndex: 2 }}
     >
       <div>
         <span className="font-semibold">{booking.patient}</span>
