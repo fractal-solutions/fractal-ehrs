@@ -1,5 +1,5 @@
 import React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { format, setHours, setMinutes, addMinutes, isWithinInterval } from "date-fns"
 import { DndContext, useDraggable, useDroppable } from "@dnd-kit/core"
 
@@ -17,8 +17,8 @@ const doctors = [
   { id: "dr-smith", name: "Dr. Smith" },
 ]
 
-const START_HOUR = 8
-const END_HOUR = 17
+const START_HOUR = 7
+const END_HOUR = 19
 const SLOT_MINUTES = 15
 
 function generateTimeSlots(startHour, endHour, slotMinutes) {
@@ -85,6 +85,7 @@ export default function Appointments() {
 
   const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
   const selectedDateStr = format(selected, "yyyy-MM-dd")
+  const [scrollKey, setScrollKey] = useState(0)
 
   // Find a booking that covers this slot (including multi-slot bookings)
   function getBookingForSlot(doctorId, slot) {
@@ -215,6 +216,41 @@ export default function Appointments() {
         handleEditBookingClose()
     }
 
+    // Find the slot closest to now (rounded down)
+    function getCurrentSlot(slots) {
+        const now = new Date()
+        const nowMinutes = now.getHours() * 60 + now.getMinutes()
+        let closest = slots[0]
+        let closestDiff = Math.abs((closest.getHours() * 60 + closest.getMinutes()) - nowMinutes)
+        for (const slot of slots) {
+        const slotMinutes = slot.getHours() * 60 + slot.getMinutes()
+        const diff = nowMinutes - slotMinutes
+        if (diff >= 0 && diff < closestDiff) {
+            closest = slot
+            closestDiff = diff
+        }
+        }
+        return closest
+    }
+    const currentSlot = getCurrentSlot(slots)
+    const slotRefs = useRef({})
+
+    // Scroll to current slot on mount or when selected date/tab changes
+    useEffect(() => {
+        setScrollKey(prev => prev + 1);
+    }, [selected, selectedTab]);
+
+    useEffect(() => {
+        // Timeout ensures refs are set after DOM update
+        setTimeout(() => {
+            const ref = slotRefs.current[format(currentSlot, "HH:mm")];
+            if (ref && ref.scrollIntoView) {
+            ref.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }, 0);
+        // eslint-disable-next-line
+    }, [scrollKey]);
+
   // Drag-and-drop logic
   function handleDragEnd(event) {
     const { active, over } = event
@@ -252,7 +288,7 @@ export default function Appointments() {
           mode="single"
           selected={selected}
           onSelect={setSelected}
-          className="rounded-lg border shadow-sm scale-100 m-2 w-full"
+          className="rounded-lg border shadow-sm scale-100 m-1 mt-0 w-full"
         />
       </div>
 
@@ -266,7 +302,7 @@ export default function Appointments() {
             ))}
           </TabsList>
           <TabsContent value="timeline">
-            <ScrollArea className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
+            <ScrollArea key={scrollKey} className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
               <DndContext onDragEnd={handleDragEnd}>
                 <div
                   className="grid"
@@ -284,55 +320,59 @@ export default function Appointments() {
                   ))}
                   {/* Time slots and bookings */}
                   {slots.map((slot, rowIdx) => {
+                    const slotKey = format(slot, "HH:mm")
                     return (
                         <React.Fragment key={rowIdx}>
                         {/* Time column */}
-                        <div className="text-right pr-2 py-1 text-xs bg-background sticky left-0 z-10 border-b border-r font-mono">
+                        <div
+                          ref={el => {
+                            if (slotKey === format(currentSlot, "HH:mm")) {
+                              slotRefs.current[slotKey] = el
+                            }
+                          }}
+                          className="text-right pr-2 py-1 text-xs bg-background sticky left-0 z-10 border-b border-r font-mono"
+                        >
                             {format(slot, "hh:mm a")}
                         </div>
                         {doctors.map((doc, colIdx) => {
                             const booking = getBookingForSlot(doc.id, slot)
-                            // Only render the booking at its start slot, skip rendering for covered slots
                             if (booking && !isBookingStart(doc.id, slot)) {
-                            // Skip covered slots
-                            return <div key={colIdx} style={{ height: 0 }} />
+                              return <div key={colIdx} style={{ height: 0 }} />
                             }
                             if (booking) {
-                            // Calculate height
-                            const slotCount = (booking.duration || 15) / SLOT_MINUTES
-                            const height = slotCount * 48 // 48px per slot
-                            return (
+                              const slotCount = (booking.duration || 15) / SLOT_MINUTES
+                              const height = slotCount * 48
+                              return (
                                 <DroppableSlot key={colIdx} id={`${doc.id}|${format(slot, "HH:mm")}`}>
-                                <DraggableBooking
+                                  <DraggableBooking
                                     id={`${doc.id}|${booking.time}`}
                                     booking={booking}
                                     onRemove={() => handleRemoveBooking(doc.id, booking)}
                                     onEdit={() => handleEditBookingOpen(doc.id, booking)}
                                     style={{ height }}
-                                />
+                                  />
                                 </DroppableSlot>
-                            )
+                              )
                             }
-                            // Empty slot
                             return (
-                            <DroppableSlot key={colIdx} id={`${doc.id}|${format(slot, "HH:mm")}`}>
+                              <DroppableSlot key={colIdx} id={`${doc.id}|${format(slot, "HH:mm")}`}>
                                 <div className="flex items-center justify-center h-12 border-b border-r">
-                                <Button
+                                  <Button
                                     size="xs"
                                     variant="outline"
                                     onClick={() => handleDialogOpen(doc.id, slot)}
                                     disabled={!isSlotRangeAvailable(doc.id, slot, duration)}
                                     className="w-2/3"
-                                >
+                                  >
                                     Book
-                                </Button>
+                                  </Button>
                                 </div>
-                            </DroppableSlot>
+                              </DroppableSlot>
                             )
                         })}
                         </React.Fragment>
                     )
-                    })}
+                  })}
                 </div>
               </DndContext>
             </ScrollArea>
@@ -340,7 +380,7 @@ export default function Appointments() {
           {/* Individual Doctor Views */}
           {doctors.map(doc => (
             <TabsContent key={doc.id} value={doc.id}>
-                <ScrollArea className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
+                <ScrollArea key={scrollKey} className="h-[calc(100vh-160px)] rounded-lg border bg-background shadow-inner">
                 <DndContext onDragEnd={handleDragEnd}>
                     <div
                     className="grid"
@@ -355,57 +395,67 @@ export default function Appointments() {
                         {doc.name}
                     </div>
                     {/* Time slots and bookings */}
-                    {slots.map((slot, rowIdx) => (
+                    {slots.map((slot, rowIdx) => {
+                      const slotKey = format(slot, "HH:mm")
+                      return (
                         <React.Fragment key={rowIdx}>
                         {/* Time column */}
-                        <div className="text-right pr-2 py-1 text-xs bg-background sticky left-0 z-10 border-b border-r font-mono">
+                        <div
+                          ref={el => {
+                            if (slotKey === format(currentSlot, "HH:mm")) {
+                              slotRefs.current[slotKey] = el
+                            }
+                          }}
+                          className="text-right pr-2 py-1 text-xs bg-background sticky left-0 z-10 border-b border-r font-mono"
+                        >
                             {format(slot, "hh:mm a")}
                         </div>
                         {/* Doctor's column */}
                         {(() => {
                             const booking = getBookingForSlot(doc.id, slot)
                             if (booking && !isBookingStart(doc.id, slot)) {
-                            return <div style={{ height: 0 }} />
+                              return <div style={{ height: 0 }} />
                             }
                             if (booking) {
-                            const slotCount = (booking.duration || 15) / SLOT_MINUTES
-                            const height = slotCount * 48
-                            return (
+                              const slotCount = (booking.duration || 15) / SLOT_MINUTES
+                              const height = slotCount * 48
+                              return (
                                 <DroppableSlot id={`${doc.id}|${format(slot, "HH:mm")}`}>
-                                <DraggableBooking
+                                  <DraggableBooking
                                     id={`${doc.id}|${booking.time}`}
                                     booking={booking}
                                     onRemove={() => handleRemoveBooking(doc.id, booking)}
                                     onEdit={() => handleEditBookingOpen(doc.id, booking)}
                                     style={{ height }}
-                                />
+                                  />
                                 </DroppableSlot>
-                            )
+                              )
                             }
                             // Empty slot
                             return (
-                            <DroppableSlot id={`${doc.id}|${format(slot, "HH:mm")}`}>
+                              <DroppableSlot id={`${doc.id}|${format(slot, "HH:mm")}`}>
                                 <div className="flex items-center justify-center h-12 border-b border-r">
-                                <Button
+                                  <Button
                                     size="xs"
                                     variant="outline"
                                     onClick={() => handleDialogOpen(doc.id, slot)}
                                     disabled={!isSlotRangeAvailable(doc.id, slot, duration)}
                                     className="w-2/3"
-                                >
+                                  >
                                     Book
-                                </Button>
+                                  </Button>
                                 </div>
-                            </DroppableSlot>
+                              </DroppableSlot>
                             )
                         })()}
                         </React.Fragment>
-                    ))}
+                      )
+                    })}
                     </div>
                 </DndContext>
                 </ScrollArea>
             </TabsContent>
-            ))}
+          ))}
         </Tabs>
       </div>
 
