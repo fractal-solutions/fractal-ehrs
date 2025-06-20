@@ -32,10 +32,10 @@ function getStoredPatients() {
   }
 }
 
-function generateTimeSlots(startHour, endHour, slotMinutes) {
+function generateTimeSlots(startHour, endHour, slotMinutes, baseDate = new Date()) {
   const slots = []
-  let current = setMinutes(setHours(new Date(), startHour), 0)
-  const end = setMinutes(setHours(new Date(), endHour), 0)
+  let current = setMinutes(setHours(new Date(baseDate), startHour), 0)
+  const end = setMinutes(setHours(new Date(baseDate), endHour), 0)
   while (current < end) {
     slots.push(current)
     current = addMinutes(current, slotMinutes)
@@ -134,7 +134,7 @@ export default function Appointments() {
 
   const [selectedTab, setSelectedTab] = useState("timeline")
 
-  const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES)
+  const slots = generateTimeSlots(START_HOUR, END_HOUR, SLOT_MINUTES, selected)
   const selectedDateStr = format(selected && selected instanceof Date && !isNaN(selected) ? selected : new Date(), "yyyy-MM-dd")
   const [scrollKey, setScrollKey] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
@@ -348,7 +348,7 @@ export default function Appointments() {
         <Calendar
           mode="single"
           selected={selected}
-          onSelect={setSelected}
+          onSelect={date => setSelected(date || new Date())}
           className="rounded-lg border shadow-sm scale-100 m-1 mt-7 w-full"
         />
       </div>
