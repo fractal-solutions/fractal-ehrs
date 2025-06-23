@@ -27,17 +27,22 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useAuth, ROLES } from "../context/AuthContext.jsx";
 
 export function NavUser({
   user,
+  onShowRegister,
 }: {
   user: {
     name: string
     email: string
     avatar: string
-  }
+    role?: string
+  },
+  onShowRegister?: () => void
 }) {
   const { isMobile } = useSidebar()
+  const { logout, user: authUser } = useAuth();
 
   return (
     <SidebarMenu>
@@ -78,6 +83,15 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {authUser?.role === ROLES.ADMIN && onShowRegister && (
+              <>
+                <DropdownMenuItem onClick={onShowRegister}>
+                  <Sparkles />
+                  Register New User
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <Sparkles />
@@ -100,7 +114,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>
               <LogOut />
               Log out
             </DropdownMenuItem>

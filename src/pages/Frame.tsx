@@ -17,7 +17,7 @@ import Appointments from "@/pages/appointments/doctors-appointments"
 import PatientManagement from "@/pages/patients/patient-management"
 
 
-export default function Page() {
+export default function Page({ onShowRegister }: { onShowRegister?: () => void }) {
   return (
     <BrowserRouter>
     <SidebarProvider>
@@ -55,7 +55,7 @@ export default function Page() {
           </Routes>
         </div>
       </SidebarInset>
-      <SidebarRight />
+      <SidebarRight onShowRegister={onShowRegister} />
     </SidebarProvider>
     </BrowserRouter>
   )

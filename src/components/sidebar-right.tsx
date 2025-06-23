@@ -32,6 +32,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarGroup, Si
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { useAuth } from "../context/AuthContext.jsx"
 
 const PATIENTS_STORAGE_KEY = "fractal-ehrs-patients"
 const QUEUE_STORAGE_KEY = "fractal-ehrs-queue"
@@ -62,11 +63,6 @@ function saveQueue(data: any) {
 }
 
 const initialData = {
-  user: {
-    name: "Dr. Smith",
-    email: "dr.smith@hospital.com",
-    avatar: "/avatars/doctor.jpg",
-  },
   waitingPatients: [
     {
       id: "P001",
@@ -292,8 +288,10 @@ function PatientCard({
 import  PatientStepperDialog  from "@/pages/patients/patient-stepper-dialog"
 
 export function SidebarRight({
+  onShowRegister,
   ...props
-}: React.ComponentProps<typeof Sidebar>) {
+}: React.ComponentProps<typeof Sidebar> & { onShowRegister?: () => void }) {
+  const { user } = useAuth();
   const [data, setData] = React.useState(getStoredQueue())
   const [patientDialogOpen, setPatientDialogOpen] = React.useState(false)
   const [patients, setPatients] = React.useState(getStoredPatients())
@@ -344,7 +342,7 @@ export function SidebarRight({
         {
           id: patient.id,
           name: patient.name,
-          doctor: prev.user.name,
+          doctor: user?.name || "Unknown",
           room: "Room 1",
           startedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           estimatedDuration: "20 min",
@@ -361,7 +359,12 @@ export function SidebarRight({
       {...props}
     >
       <SidebarHeader className="border-sidebar-border h-16 border-b  sticky top-0 bg-background">
-        <NavUser user={data.user} />
+        <NavUser user={{
+          name: user?.name || "Unknown",
+          email: user?.username || "",
+          avatar: user?.avatar || "/avatars/doctor.jpg",
+          role: user?.role
+        }} onShowRegister={onShowRegister} />
       </SidebarHeader>
 
       <ScrollArea className="flex-1 px-2 py-2">
