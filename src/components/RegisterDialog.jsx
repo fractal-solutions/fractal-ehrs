@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth, ROLES } from '../context/AuthContext.jsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from './ui/dialog';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui/select';
 
 export default function RegisterDialog({ open, onOpenChange }) {
   const { user, register } = useAuth();
@@ -10,6 +14,10 @@ export default function RegisterDialog({ open, onOpenChange }) {
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleRoleChange = (value) => {
+    setForm(f => ({ ...f, role: value }));
   };
 
   const handleSubmit = (e) => {
@@ -27,57 +35,69 @@ export default function RegisterDialog({ open, onOpenChange }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Register User</DialogTitle>
+          <DialogTitle>Register New User</DialogTitle>
         </DialogHeader>
-        {error && <div className="text-red-500 mb-2">{error}</div>}
-        {success && <div className="text-green-600 mb-2">{success}</div>}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-          <input
-            type="text"
-            name="username"
-            placeholder="Username"
-            value={form.username}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
-          />
-          <input
-            type="text"
-            name="name"
-            placeholder="Full Name"
-            value={form.name}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-            required
-          />
-          <select
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            className="w-full p-2 border rounded"
-          >
-            <option value={ROLES.DOCTOR}>Doctor</option>
-            <option value={ROLES.SECRETARY}>Secretary</option>
-            <option value={ROLES.ASSISTANT}>Assistant</option>
-            <option value={ROLES.ADMIN}>Admin</option>
-          </select>
-          <div className="flex gap-2 justify-end mt-2">
-            <DialogClose asChild>
-              <button type="button" className="px-4 py-2 rounded bg-gray-200">Cancel</button>
-            </DialogClose>
-            <button type="submit" className="px-4 py-2 rounded bg-green-600 text-white">Register</button>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              name="username"
+              type="text"
+              placeholder="Username"
+              value={form.username}
+              onChange={handleChange}
+              required
+            />
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input
+              id="name"
+              name="name"
+              type="text"
+              placeholder="Full Name"
+              value={form.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="role">Role</Label>
+            <Select value={form.role} onValueChange={handleRoleChange}>
+              <SelectTrigger id="role" className="w-full">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ROLES.DOCTOR}>Doctor</SelectItem>
+                <SelectItem value={ROLES.SECRETARY}>Secretary</SelectItem>
+                <SelectItem value={ROLES.ASSISTANT}>Assistant</SelectItem>
+                <SelectItem value={ROLES.ADMIN}>Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {error && <div className="text-destructive text-sm mt-1">{error}</div>}
+          {success && <div className="text-green-600 text-sm mt-1">{success}</div>}
+          <DialogFooter className="mt-2">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button type="submit" variant="default">Register</Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
