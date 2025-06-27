@@ -197,6 +197,9 @@ function PatientCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onShowInfo}>
+                  Add Notes
+                </DropdownMenuItem>
                 {onFinishProcedure && (
                   <DropdownMenuItem onClick={() => onFinishProcedure(patient)}>
                     Finish Procedure
@@ -307,6 +310,9 @@ export function SidebarRight({
   const paid = parseFloat(finishProcedureData.paid) || 0;
   const newBalance = finishProcedurePreviousBalance + (charge - discount) - paid;
 
+  // Add state for info dialog edit notes
+  const [infoDialogEditNotes, setInfoDialogEditNotes] = React.useState(false);
+
   async function openConsultDialog(patientId: string) {
     setConsultLoading(true);
     try {
@@ -407,7 +413,7 @@ export function SidebarRight({
   const [infoTab, setInfoTab] = React.useState("info");
   const infoTimelineRef = React.useRef(null);
 
-  async function openInfoDialog(patientId: string) {
+  async function openInfoDialog(patientId: string, edit: boolean) {
     setInfoLoading(true);
     try {
       const fullPatient = await fetchPatientById(patientId);
@@ -611,6 +617,7 @@ export function SidebarRight({
                   status="procedure"
                   onRemoveFromQueue={() => setProcedureQueue(prev => prev.filter(p => p.id !== patient.id))}
                   onFinishProcedure={handleOpenFinishProcedure}
+                  onShowInfo={() => openInfoDialog(patient.id, true)}
                 />
               ))}
             </div>
@@ -1013,6 +1020,19 @@ export function SidebarRight({
                     </CardContent>
                   </Card>
                 </div>
+                {infoDialogEditNotes && infoPatient && (
+                  <div className="flex justify-end mb-4">
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        setInfoDialogOpen(false);
+                        handleOpenFinishProcedure(infoPatient);
+                      }}
+                    >
+                      Finish Procedure
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
               <TabsContent value="billing">
                 <Card>
