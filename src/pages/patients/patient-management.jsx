@@ -56,6 +56,19 @@ async function addProcedure(patientId, procedure) {
   return await res.json()
 }
 
+const PROCEDURE_OPTIONS = [
+  { label: "Consultation", value: "Consultation", cost: 500 },
+  { label: "X-Ray", value: "X-Ray", cost: 1500 },
+  { label: "Blood Test", value: "Blood Test", cost: 800 },
+  // ...add more as needed
+];
+
+// Helper to get today's date in YYYY-MM-DD format
+function getToday() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
 export default function PatientManagement() {
   const [patients, setPatients] = useState([])
   const [search, setSearch] = useState("")
@@ -69,6 +82,18 @@ export default function PatientManagement() {
   const [anamnesis, setAnamnesis] = useState("")
   const [billing, setBilling] = useState([])
 
+  const [newProcedure, setNewProcedure] = useState({
+    date: getToday(),
+    procedure: "",
+    charges: "",
+    discount: "",
+    paid: "",
+    balance: ""
+  });
+  const [addingProcedure, setAddingProcedure] = useState(false);
+
+  const timelineScrollAreaRef = React.useRef(null);
+
   useEffect(() => {
     setLoading(true)
     fetchPatients()
@@ -76,6 +101,33 @@ export default function PatientManagement() {
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  // When dialog opens or after adding, reset date to today
+  useEffect(() => {
+    if (infoDialogOpen) {
+      setNewProcedure({ date: getToday(), procedure: "", charges: "", discount: "", paid: "", balance: "" });
+    }
+  }, [infoDialogOpen]);
+
+  useEffect(() => {
+    if (infoDialogOpen && timelineScrollAreaRef.current) {
+      const el = timelineScrollAreaRef.current;
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, [infoDialogOpen, selectedPatient?.doctorsNotes]);
+
+  // --- Add this effect for robust scroll-to-bottom after adding a note ---
+  useEffect(() => {
+    if (
+      infoDialogOpen &&
+      timelineScrollAreaRef.current &&
+      selectedPatient?.doctorsNotes &&
+      selectedPatient.doctorsNotes[0]
+    ) {
+      const el = timelineScrollAreaRef.current;
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, [infoDialogOpen, selectedPatient?.doctorsNotes?.[0]?.length]);
 
   async function handlePatientAdded(newPatient) {
     setLoading(true)
@@ -127,10 +179,59 @@ export default function PatientManagement() {
         ? fullPatient.doctorsNotes[0][fullPatient.doctorsNotes[0].length - 1].note
         : "")
       setBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : [])
+      setAnamnesis('')
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const previousBalance = billing.length > 0
+    ? parseFloat(billing[billing.length - 1].balance) || 0
+    : 0;
+
+  const charge = parseFloat(newProcedure.charges) || 0;
+  const discount = parseFloat(newProcedure.discount) || 0;
+  const paid = parseFloat(newProcedure.paid) || 0;
+  const newBalance = previousBalance + (charge - discount) - paid;
+
+  function handleProcedureChange(field, value) {
+    if (field === "procedure") {
+      const selected = PROCEDURE_OPTIONS.find(opt => opt.value === value);
+      setNewProcedure(p => ({
+        ...p,
+        procedure: value,
+        charges: selected ? selected.cost : "",
+        discount: "",
+        paid: "",
+        balance: ""
+      }));
+    } else {
+      setNewProcedure(p => ({ ...p, [field]: value }));
+    }
+  }
+
+  async function handleAddProcedure() {
+    if (!selectedPatient) return;
+    setAddingProcedure(true);
+    try {
+      await addProcedure(selectedPatient.id, {
+        date: newProcedure.date,
+        procedure: newProcedure.procedure,
+        charges: charge,
+        paid: paid,
+        balance: newBalance,
+      });
+      // Refresh billing
+      const fullPatient = await fetchPatientById(selectedPatient.id);
+      setSelectedPatient(fullPatient);
+      setBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : []);
+      setNewProcedure({ date: getToday(), procedure: "", charges: "", discount: "", paid: "", balance: "" });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAddingProcedure(false);
     }
   }
 
@@ -218,7 +319,7 @@ export default function PatientManagement() {
         onPatientAdded={handlePatientAdded}
       />
       <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
-        <DialogContent className="w-[98vw] max-w-screen-2xl max-h-[90vh] p-0 overflow-x-auto">
+        <DialogContent className="w-[98vw] max-w-screen-2xl max-h-[90vh] p-0 overflow-x-auto overflow-y-hidden">
           <DialogHeader className="px-6 pt-6">
             <DialogTitle>Patient Information</DialogTitle>
           </DialogHeader>
@@ -264,15 +365,18 @@ export default function PatientManagement() {
                       <CardTitle className="text-lg tracking-tight">Doctor Notes Timeline</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col gap-2 p-0">
-                      <ScrollArea className="max-h-[50vh] pr-2">
-                        <div className="relative flex flex-col gap-6 pl-6">
+                      <ScrollArea className="max-h-[50vh] pr-2" viewportRef={timelineScrollAreaRef}>
+                        <div className="relative flex flex-col gap-6 pl-6 pb-6">
                           {/* Vertical timeline line */}
                           <div className="absolute left-2 top-0 bottom-0 w-1 bg-primary/10 rounded-full" style={{zIndex:0}} />
                           {(selectedPatient.doctorsNotes && selectedPatient.doctorsNotes[0] && selectedPatient.doctorsNotes[0].length > 0) ? (
                             [...selectedPatient.doctorsNotes[0]]
                               .sort((a, b) => new Date(a.date) - new Date(b.date))
                               .map((note, idx, arr) => (
-                                <div key={idx} className="relative flex gap-4 items-start z-10">
+                                <div
+                                  key={idx}
+                                  className="relative flex gap-4 items-start z-10"
+                                >
                                   {/* Timeline dot */}
                                   <div className="flex flex-col items-center">
                                     <Avatar className={idx === arr.length-1 ? 'ring-2 ring-primary' : ''}>
@@ -299,8 +403,9 @@ export default function PatientManagement() {
                         <div className="flex gap-2 items-end">
                           <Textarea
                             className="flex-1"
+                            value={anamnesis}
                             rows={2}
-                            onChange={e => setAnamnesis(e.target.value)}
+                            onChange={e => {setAnamnesis(e.target.value);}}
                             placeholder="Add a new doctor note..."
                           />
                           <Button size="sm" onClick={handleSaveAnamnesis} disabled={loading || !anamnesis.trim()}>
@@ -317,37 +422,121 @@ export default function PatientManagement() {
                   <CardHeader>
                     <CardTitle className="text-base">Billing History</CardTitle>
                   </CardHeader>
-                  <CardContent className="overflow-x-auto p-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Procedure</TableHead>
-                          <TableHead>Charges</TableHead>
-                          <TableHead>Paid</TableHead>
-                          <TableHead>Balance</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {billing.length === 0 ? (
+                  <CardContent className="overflow-x-auto p-2">
+                    {/* Add Procedure Form - sticky */}
+                    <Card className="mb-6 p-4 bg-muted/90 border border-primary/10 shadow-sm w-fit mx-auto sticky top-0 z-10">
+                      <form
+                        className="grid grid-cols-2 md:grid-cols-6 gap-4 items-end"
+                        onSubmit={e => { e.preventDefault(); handleAddProcedure(); }}
+                      >
+                        <div className="flex flex-col">
+                          <label className="text-xs font-medium mb-1">Date</label>
+                          <Input
+                            type="date"
+                            className="w-40"
+                            value={newProcedure.date}
+                            onChange={e => handleProcedureChange("date", e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-xs font-medium mb-1">Procedure</label>
+                          <select
+                            className="w-48 border rounded-md px-2 py-1 h-10 text-sm"
+                            value={newProcedure.procedure}
+                            onChange={e => handleProcedureChange("procedure", e.target.value)}
+                            required
+                          >
+                            <option value="">Select Procedure</option>
+                            {PROCEDURE_OPTIONS.map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-xs font-medium mb-1">Charges (KES)</label>
+                          <Input
+                            type="number"
+                            className="w-24"
+                            value={newProcedure.charges}
+                            readOnly
+                            placeholder="500 KES"
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-xs font-medium mb-1">Discount (KES)</label>
+                          <Input
+                            type="number"
+                            className="w-24"
+                            value={newProcedure.discount}
+                            onChange={e => handleProcedureChange("discount", e.target.value)}
+                            placeholder="0 KES"
+                            min="0"
+                            max={newProcedure.charges}
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-xs font-medium mb-1">Paid (KES)</label>
+                          <Input
+                            type="number"
+                            className="w-24"
+                            value={newProcedure.paid}
+                            onChange={e => handleProcedureChange("paid", e.target.value)}
+                            required
+                            placeholder="0 KES"
+                            min="0"
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <label className="text-xs font-medium mb-1">Balance (KES)</label>
+                          <Input
+                            type="number"
+                            className="w-24"
+                            value={isNaN(newBalance) ? "" : newBalance}
+                            readOnly
+                            placeholder="0 KES"
+                          />
+                        </div>
+                        <div className="col-span-2 md:col-span-6 flex justify-end mt-2">
+                          <Button type="submit" size="sm" disabled={addingProcedure}>
+                            {addingProcedure ? "Adding..." : "Add"}
+                          </Button>
+                        </div>
+                      </form>
+                    </Card>
+                    {/* Scrollable Table */}
+                    <ScrollArea className="max-h-[320px]">
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
-                              No billing records.
-                            </TableCell>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Procedure</TableHead>
+                            <TableHead>Charges</TableHead>
+                            <TableHead>Paid</TableHead>
+                            <TableHead>Balance</TableHead>
                           </TableRow>
-                        ) : (
-                          billing.map((b, i) => (
-                            <TableRow key={i}>
-                              <TableCell>{b.date}</TableCell>
-                              <TableCell>{b.procedure}</TableCell>
-                              <TableCell>{b.charges}</TableCell>
-                              <TableCell>{b.paid}</TableCell>
-                              <TableCell>{b.balance}</TableCell>
+                        </TableHeader>
+                        <TableBody>
+                          {billing.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                No billing records.
+                              </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                          ) : (
+                            [...billing].reverse().map((b, i) => (
+                              <TableRow key={i}>
+                                <TableCell>{b.date}</TableCell>
+                                <TableCell>{b.procedure}</TableCell>
+                                <TableCell>{b.charges}</TableCell>
+                                <TableCell>{b.paid}</TableCell>
+                                <TableCell>{b.balance}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   </CardContent>
                 </Card>
               </TabsContent>
