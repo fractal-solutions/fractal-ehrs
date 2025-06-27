@@ -626,11 +626,11 @@ export function SidebarRight({
       </SidebarFooter>
 
       {/* Multi-step Patient Registration Dialog */}
-      <PatientStepperDialog
+      {/* <PatientStepperDialog
         open={queueDialogOpen}
         onOpenChange={setQueueDialogOpen}
         onPatientAdded={handlePatientAdded}
-      />
+      /> */}
 
       {/* Add to Queue Dialog */}
       <Dialog open={queueDialogOpen} onOpenChange={setQueueDialogOpen}>
