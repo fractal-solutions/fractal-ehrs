@@ -33,6 +33,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useAuth } from "../context/AuthContext.jsx"
+import PatientStepperDialog from "@/pages/patients/patient-stepper-dialog"
+import { fetchPatients, addPatient, fetchPatientById, addDoctorNote, addProcedure } from "@/lib/api"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 const PATIENTS_STORAGE_KEY = "fractal-ehrs-patients"
 const QUEUE_STORAGE_KEY = "fractal-ehrs-queue"
@@ -53,65 +56,13 @@ function savePatients(patients: any[]) {
 function getStoredQueue() {
   try {
     const stored = localStorage.getItem(QUEUE_STORAGE_KEY)
-    return stored ? JSON.parse(stored) : initialData
+    return stored ? JSON.parse(stored) : { waitingPatients: [], inConsultation: [] }
   } catch {
-    return initialData
+    return { waitingPatients: [], inConsultation: [] }
   }
 }
 function saveQueue(data: any) {
   localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(data))
-}
-
-const initialData = {
-  waitingPatients: [
-    {
-      id: "P001",
-      name: "John Doe",
-      waitTime: "15 min",
-      priority: "urgent",
-      condition: "Chest Pain",
-      age: "45",
-      arrivedAt: "10:30 AM",
-    },
-    {
-      id: "P002",
-      name: "Jane Smith",
-      waitTime: "25 min",
-      priority: "normal",
-      condition: "Headache",
-      age: "32",
-      arrivedAt: "10:45 AM",
-    },
-    {
-      id: "P003",
-      name: "Mike Johnson",
-      waitTime: "35 min",
-      priority: "normal",
-      condition: "Fever",
-      age: "28",
-      arrivedAt: "11:00 AM",
-    },
-  ],
-  inConsultation: [
-    {
-      id: "P004",
-      name: "Sarah Wilson",
-      doctor: "Dr. Andrews",
-      room: "Room 1",
-      startedAt: "11:00 AM",
-      estimatedDuration: "20 min",
-      condition: "Back Pain",
-    },
-    {
-      id: "P005",
-      name: "Tom Brown",
-      doctor: "Dr. Martinez",
-      room: "Room 3",
-      startedAt: "11:10 AM",
-      estimatedDuration: "10 min",
-      condition: "Sprained Ankle",
-    },
-  ],
 }
 
 function SortablePatientCard({ patient, status, ...props }: { patient: any; status: "waiting" | "consulting"; onRemoveFromQueue?: () => void; onStartConsultation?: () => void }) {
@@ -153,13 +104,20 @@ function PatientCard({
   onRemoveFromQueue,
   onStartConsultation,
   dragHandle,
+  onShowInfo,
+  onStartProcedure,
+  renderExtra,
 }: {
   patient: any
-  status: "waiting" | "consulting"
+  status: "waiting" | "consulting" | "procedure"
   onRemoveFromQueue?: () => void
   onStartConsultation?: () => void
   dragHandle?: React.ReactNode
+  onShowInfo?: () => void
+  onStartProcedure?: () => void
+  renderExtra?: () => React.ReactNode
 }) {
+  const { user } = useAuth();
   return (
     <Card className="mb-2 last:mb-0 shadow-none border-muted bg-background/80 h-[90px] -mt-2 hover:bg-background/40 transition-colors">
       <CardHeader className="flex flex-row items-center gap-2 -mt-4 pb-1">
@@ -169,80 +127,70 @@ function PatientCard({
           {patient.name}
         </CardTitle>
         {dragHandle}
-        {status === "waiting" && (
-          <Badge
-            variant={patient.priority === "urgent" ? "destructive" : "secondary"}
-            className="ml-2"
-          >
-            {patient.priority === "urgent" ? (
-              <>
-                <AlertCircle className="mr-1 h-3 w-3" />
-                Urgent
-              </>
-            ) : (
-              "Waiting"
-            )}
-          </Badge>
-        )}
-        {status === "consulting" && (
-          <Badge variant="outline" className="ml-2 flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3 text-green-600" />
-            In Consultation
-          </Badge>
-        )}
-        {/* Dropdown menu for actions */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 ml-1 text-muted-foreground"
-              // Prevent drag and row click when opening menu
-              onClick={e => e.stopPropagation()}
-              onMouseDown={e => e.stopPropagation()}
-              tabIndex={0}
+        {status === "waiting" ? (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 ml-1 text-muted-foreground">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onShowInfo}>View Details</DropdownMenuItem>
+                {(user && (user.role === "admin" || user.role === "doctor" || user.role === "assistant")) && (
+                  <DropdownMenuItem onClick={onStartConsultation}>Start Consultation</DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={onRemoveFromQueue}>Remove from Queue</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Badge
+              variant={patient.priority === "urgent" ? "destructive" : "secondary"}
+              className="ml-2"
             >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={e => {
-                e.stopPropagation();
-                // ...view details logic...
-              }}
-            >
-              View Details
-            </DropdownMenuItem>
-            {status === "waiting" ? (
-              <>
-                <DropdownMenuItem
-                  onClick={e => {
-                    e.stopPropagation();
-                    if (onStartConsultation) onStartConsultation();
-                  }}
-                >
-                  Start Consultation
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600"
-                  onClick={e => {
-                    e.stopPropagation();
-                    if (onRemoveFromQueue) onRemoveFromQueue();
-                  }}
-                >
-                  Remove from Queue
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <>
-                <DropdownMenuItem>End Consultation</DropdownMenuItem>
-                <DropdownMenuItem>Transfer Patient</DropdownMenuItem>
-              </>
+              {patient.priority === "urgent" ? (
+                <>
+                  <AlertCircle className="mr-1 h-3 w-3" />
+                  Urgent
+                </>
+              ) : (
+                "Waiting"
+              )}
+            </Badge>
+          </>
+        ) : status === "consulting" ? (
+          <>
+            {user && (user.role === "admin" || user.role === "doctor") && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 ml-1 text-muted-foreground">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onShowInfo}>Consultation Details</DropdownMenuItem>
+                  <DropdownMenuItem onClick={onStartProcedure}>Start Procedure</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <Badge variant="outline" className="ml-2 flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              In Consultation
+            </Badge>
+          </>
+        ) : status === "procedure" ? (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 ml-1 text-muted-foreground">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onRemoveFromQueue}>Remove from Procedure Queue</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-1 px-3 -mt-6">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -252,6 +200,12 @@ function PatientCard({
               <span>Arrived: {patient.arrivedAt}</span>
               <span>•</span>
               <span>Wait: {patient.waitTime}</span>
+            </>
+          ) : status === "consulting" ? (
+            <>
+              <span>Started: {patient.startedAt}</span>
+              <span>•</span>
+              <span>{patient.estimatedDuration} left</span>
             </>
           ) : (
             <>
@@ -270,6 +224,14 @@ function PatientCard({
               <span>•</span>
               <span>{patient.condition}</span>
             </>
+          ) : status === "consulting" ? (
+            <>
+              <span>{patient.doctor}</span>
+              <span>•</span>
+              <span>{patient.room}</span>
+              <span>•</span>
+              <span>{patient.condition}</span>
+            </>
           ) : (
             <>
               <span>{patient.doctor}</span>
@@ -280,28 +242,73 @@ function PatientCard({
             </>
           )}
         </div>
+        {renderExtra && renderExtra()}
       </CardContent>
     </Card>
   )
 }
-
-import  PatientStepperDialog  from "@/pages/patients/patient-stepper-dialog"
 
 export function SidebarRight({
   onShowRegister,
   ...props
 }: React.ComponentProps<typeof Sidebar> & { onShowRegister?: () => void }) {
   const { user } = useAuth();
-  const [data, setData] = React.useState(getStoredQueue())
-  const [patientDialogOpen, setPatientDialogOpen] = React.useState(false)
-  const [patients, setPatients] = React.useState(getStoredPatients())
+  const [data, setData] = React.useState<any>(getStoredQueue())
+  const [patients, setPatients] = React.useState<any[]>([])
   const [queueDialogOpen, setQueueDialogOpen] = React.useState(false)
   const [queueSearch, setQueueSearch] = React.useState("")
   const [queueConditions, setQueueConditions] = React.useState<{ [id: string]: string }>({})
 
+  // --- Consultation dialog state (move here from PatientCard) ---
+  const [consultDialogOpen, setConsultDialogOpen] = React.useState(false);
+  const [consultPatient, setConsultPatient] = React.useState<any>(null);
+  const [consultLoading, setConsultLoading] = React.useState(false);
+  const [consultAnamnesis, setConsultAnamnesis] = React.useState("");
+  const [consultBilling, setConsultBilling] = React.useState<any[]>([]);
+  const [consultTab, setConsultTab] = React.useState("info");
+  const consultTimelineRef = React.useRef(null);
+
+  async function openConsultDialog(patientId: string) {
+    setConsultLoading(true);
+    try {
+      const fullPatient = await fetchPatientById(patientId);
+      setConsultPatient(fullPatient);
+      setConsultAnamnesis((fullPatient.doctorsNotes && fullPatient.doctorsNotes[0] && fullPatient.doctorsNotes[0].length > 0)
+        ? fullPatient.doctorsNotes[0][fullPatient.doctorsNotes[0].length - 1].note
+        : "");
+      setConsultBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : []);
+      setConsultDialogOpen(true);
+    } finally {
+      setConsultLoading(false);
+    }
+  }
+
+  async function handleConsultSaveAnamnesis() {
+    if (!consultPatient) return;
+    setConsultLoading(true);
+    try {
+      await addDoctorNote(consultPatient.id, {
+        date: new Date().toISOString().slice(0, 10),
+        note: consultAnamnesis
+      });
+      const fullPatient = await fetchPatientById(consultPatient.id);
+      setConsultPatient(fullPatient);
+      setConsultAnamnesis((fullPatient.doctorsNotes && fullPatient.doctorsNotes[0] && fullPatient.doctorsNotes[0].length > 0)
+        ? fullPatient.doctorsNotes[0][fullPatient.doctorsNotes[0].length - 1].note
+        : "");
+      setConsultBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : []);
+    } finally {
+      setConsultLoading(false);
+    }
+  }
+
   React.useEffect(() => {
     saveQueue(data)
   }, [data])
+
+  React.useEffect(() => {
+    fetchPatients().then(setPatients);
+  }, []);
 
   // Drag-and-drop reorder handler
   function handleDragEnd(event: any) {
@@ -318,12 +325,12 @@ export function SidebarRight({
     }
   }
 
-  function handlePatientAdded(newPatient: any) {
-    setPatients(prev => {
-      const updated = [...prev, newPatient]
-      savePatients(updated)
-      return updated
-    })
+  async function handlePatientAdded(newPatient) {
+    // Map 'mobile' to 'phone' for API compatibility
+    const patientForApi = { ...newPatient, phone: newPatient.mobile || newPatient.phone };
+    await addPatient(patientForApi);
+    const updated = await fetchPatients();
+    setPatients(updated);
   }
 
   function handleRemoveFromQueue(patientId: string) {
@@ -350,6 +357,60 @@ export function SidebarRight({
         },
       ],
     }))
+  }
+
+  // Add state for patient info dialog
+  const [infoDialogOpen, setInfoDialogOpen] = React.useState(false);
+  const [infoPatient, setInfoPatient] = React.useState<any>(null);
+  const [infoLoading, setInfoLoading] = React.useState(false);
+  const [infoAnamnesis, setInfoAnamnesis] = React.useState("");
+  const [infoBilling, setInfoBilling] = React.useState<any[]>([]);
+  const [infoTab, setInfoTab] = React.useState("info");
+  const infoTimelineRef = React.useRef(null);
+  const [procedureQueue, setProcedureQueue] = React.useState<any[]>([]);
+
+  async function openInfoDialog(patientId: string) {
+    setInfoLoading(true);
+    try {
+      const fullPatient = await fetchPatientById(patientId);
+      setInfoPatient(fullPatient);
+      setInfoAnamnesis((fullPatient.doctorsNotes && fullPatient.doctorsNotes[0] && fullPatient.doctorsNotes[0].length > 0)
+        ? fullPatient.doctorsNotes[0][fullPatient.doctorsNotes[0].length - 1].note
+        : "");
+      setInfoBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : []);
+      setInfoDialogOpen(true);
+    } finally {
+      setInfoLoading(false);
+    }
+  }
+
+  async function handleInfoSaveAnamnesis() {
+    if (!infoPatient) return;
+    setInfoLoading(true);
+    try {
+      await addDoctorNote(infoPatient.id, {
+        date: new Date().toISOString().slice(0, 10),
+        note: infoAnamnesis
+      });
+      const fullPatient = await fetchPatientById(infoPatient.id);
+      setInfoPatient(fullPatient);
+      setInfoAnamnesis((fullPatient.doctorsNotes && fullPatient.doctorsNotes[0] && fullPatient.doctorsNotes[0].length > 0)
+        ? fullPatient.doctorsNotes[0][fullPatient.doctorsNotes[0].length - 1].note
+        : "");
+      setInfoBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : []);
+    } finally {
+      setInfoLoading(false);
+    }
+  }
+
+  function handleStartProcedure(patient: any) {
+    const room = prompt("Enter procedure room number:");
+    if (!room) return;
+    setProcedureQueue(prev => [...prev, { ...patient, procedureRoom: room }]);
+    setData(prev => ({
+      ...prev,
+      inConsultation: prev.inConsultation.filter((p: any) => p.id !== patient.id),
+    }));
   }
 
   return (
@@ -419,6 +480,38 @@ export function SidebarRight({
                   key={patient.id}
                   patient={patient}
                   status="consulting"
+                  onShowInfo={() => openInfoDialog(patient.id)}
+                  onStartProcedure={() => handleStartProcedure(patient)}
+                />
+              ))}
+            </div>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center gap-2 mb-2">
+              <UserCheck className="h-4 w-4" />
+              <span className="font-semibold">Procedure Queue</span>
+              <Badge variant="secondary">{procedureQueue.length}</Badge>
+            </SidebarGroupLabel>
+            <div>
+              {procedureQueue.length === 0 && (
+                <div className="text-xs text-muted-foreground px-2 py-4 text-center">
+                  No patients in procedure queue.
+                </div>
+              )}
+              {procedureQueue.map((patient) => (
+                <PatientCard
+                  key={patient.id}
+                  patient={patient}
+                  status="procedure"
+                  onRemoveFromQueue={() => setProcedureQueue(prev => prev.filter(p => p.id !== patient.id))}
+                  renderExtra={() => (
+                    <div className="flex gap-2 text-xs text-muted-foreground">
+                      <span>Room: {patient.procedureRoom}</span>
+                      <span>•</span>
+                      <span>Doctor: {patient.doctor}</span>
+                    </div>
+                  )}
                 />
               ))}
             </div>
@@ -427,15 +520,7 @@ export function SidebarRight({
       </ScrollArea>
 
       <SidebarFooter className="border-t p-3 sticky bottom-0 bg-background flex flex-col gap-2">
-        <Button className="w-full h-10 text-base" variant="default" onClick={() => setPatientDialogOpen(true)}>
-          <Plus className="mr-2 h-5 w-5" />
-          Add New Patient
-        </Button>
-        <Button
-          className="w-full h-10 text-base"
-          variant="default"
-          onClick={() => setQueueDialogOpen(true)}
-        >
+        <Button className="w-full h-10 text-base" variant="default" onClick={() => setQueueDialogOpen(true)}>
           <Plus className="mr-2 h-5 w-5" />
           Add Patient to Queue
         </Button>
@@ -443,8 +528,8 @@ export function SidebarRight({
 
       {/* Multi-step Patient Registration Dialog */}
       <PatientStepperDialog
-        open={patientDialogOpen}
-        onOpenChange={setPatientDialogOpen}
+        open={queueDialogOpen}
+        onOpenChange={setQueueDialogOpen}
         onPatientAdded={handlePatientAdded}
       />
 
@@ -474,7 +559,6 @@ export function SidebarRight({
                   <Card
                     key={p.id}
                     className="flex flex-col md:flex-row items-center justify-between px-4 py-2 gap-2 md:gap-0 cursor-pointer hover:bg-muted"
-                    // Remove onClick from Card to avoid accidental add
                   >
                     <div className="flex-1 w-full">
                       <div className="font-semibold">{p.name}</div>
@@ -512,13 +596,13 @@ export function SidebarRight({
                               arrivedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                             },
                           ],
-                        }))
-                        setQueueDialogOpen(false)
+                        }));
+                        setQueueDialogOpen(false);
                         setQueueConditions(qc => {
-                          const copy = { ...qc }
-                          delete copy[p.id]
-                          return copy
-                        })
+                          const copy = { ...qc };
+                          delete copy[p.id];
+                          return copy;
+                        });
                       }}
                     >
                       Add
@@ -539,6 +623,232 @@ export function SidebarRight({
           <DialogFooter>
             <Button variant="outline" onClick={() => setQueueDialogOpen(false)}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Consultation Dialog */}
+      <Dialog open={consultDialogOpen} onOpenChange={setConsultDialogOpen}>
+        <DialogContent className="w-[98vw] max-w-screen-2xl max-h-[90vh] p-0 overflow-x-auto overflow-y-hidden">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Consultation Session</DialogTitle>
+          </DialogHeader>
+          {consultPatient && (
+            <Tabs value={consultTab} onValueChange={setConsultTab} className="w-full px-6 pb-2">
+              <TabsList className="mb-4">
+                <TabsTrigger value="info">Info & Doctor Notes</TabsTrigger>
+                <TabsTrigger value="billing">Billing History</TabsTrigger>
+              </TabsList>
+              <TabsContent value="info">
+                <div className="flex flex-col lg:flex-row gap-8">
+                  {/* Patient Details */}
+                  <Card className="flex-1 min-w-[280px] max-w-md bg-muted/60 border border-muted-foreground/10 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg tracking-tight">Patient Details</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                        <dt className="font-semibold text-muted-foreground">Name:</dt>
+                        <dd>{consultPatient.name}</dd>
+                        <dt className="font-semibold text-muted-foreground">Age:</dt>
+                        <dd>{consultPatient.age}</dd>
+                        <dt className="font-semibold text-muted-foreground">Sex:</dt>
+                        <dd>{consultPatient.sex || consultPatient.gender}</dd>
+                        <dt className="font-semibold text-muted-foreground">Mobile:</dt>
+                        <dd>{consultPatient.phone || consultPatient.mobile}</dd>
+                        <dt className="font-semibold text-muted-foreground">Place of Work:</dt>
+                        <dd>{consultPatient.placeOfWork}</dd>
+                        <dt className="font-semibold text-muted-foreground">Occupation:</dt>
+                        <dd>{consultPatient.occupation}</dd>
+                        <dt className="font-semibold text-muted-foreground">Condition:</dt>
+                        <dd>{consultPatient.condition}</dd>
+                        <dt className="font-semibold text-muted-foreground">Status:</dt>
+                        <dd>{consultPatient.status}</dd>
+                        <dt className="font-semibold text-muted-foreground">Last Visit:</dt>
+                        <dd>{consultPatient.lastVisit || consultPatient.date}</dd>
+                      </dl>
+                    </CardContent>
+                  </Card>
+                  {/* Doctor Notes Timeline */}
+                  <Card className="flex-[2] min-w-[340px] flex flex-col bg-background border border-primary/10 shadow-md relative p-2">
+                    <CardHeader>
+                      <CardTitle className="text-lg tracking-tight">Doctor Notes Timeline</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col gap-2 p-0">
+                      <ScrollArea className="max-h-[50vh] pr-2" viewportRef={consultTimelineRef}>
+                        <div className="relative flex flex-col gap-6 pl-6 pb-6">
+                          {/* Vertical timeline line */}
+                          <div className="absolute left-2 top-0 bottom-0 w-1 bg-primary/10 rounded-full" style={{zIndex:0}} />
+                          {(consultPatient.doctorsNotes && consultPatient.doctorsNotes[0] && consultPatient.doctorsNotes[0].length > 0) ? (
+                            [...consultPatient.doctorsNotes[0]]
+                              .sort((a, b) => new Date(a.date) - new Date(b.date))
+                              .map((note, idx, arr) => (
+                                <div
+                                  key={idx}
+                                  className="relative flex gap-4 items-start z-10"
+                                >
+                                  {/* Timeline dot */}
+                                  <div className="flex flex-col items-center">
+                                    <Avatar className={idx === arr.length-1 ? 'ring-2 ring-primary' : ''}>
+                                      <AvatarFallback>{(consultPatient.name || 'D')[0]}</AvatarFallback>
+                                    </Avatar>
+                                    {idx < arr.length-1 && <span className="w-1 h-8 bg-primary/20 mt-1 mb-1 rounded-full" />}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Badge variant={idx === arr.length-1 ? 'default' : 'secondary'}>{note.date}</Badge>
+                                      <span className="text-xs text-muted-foreground">Doctor</span>
+                                    </div>
+                                    <div className={"whitespace-pre-line text-base leading-relaxed " + (idx === arr.length-1 ? 'font-semibold' : '')}>{note.note}</div>
+                                  </div>
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-muted-foreground text-sm">No notes yet.</div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                      {/* Add Note Sticky Input */}
+                      <div className="border-t pt-3 mt-3 bg-card sticky bottom-0 z-20">
+                        <div className="flex gap-2 items-end">
+                          <Textarea
+                            className="flex-1"
+                            value={consultAnamnesis}
+                            rows={2}
+                            onChange={e => setConsultAnamnesis(e.target.value)}
+                            placeholder="Add a new doctor note..."
+                          />
+                          <Button size="sm" onClick={handleConsultSaveAnamnesis} disabled={consultLoading || !consultAnamnesis.trim()}>
+                            Add Note
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              <TabsContent value="billing">
+                {/* You can reuse the billing tab UI from patient-management.jsx here, using consultBilling state */}
+              </TabsContent>
+            </Tabs>
+          )}
+          <DialogFooter className="px-6 pb-6 pt-2">
+            <Button variant="outline" onClick={() => setConsultDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Info Dialog */}
+      <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
+        <DialogContent className="w-[98vw] max-w-screen-2xl max-h-[90vh] p-0 overflow-x-auto overflow-y-hidden">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Patient Information</DialogTitle>
+          </DialogHeader>
+          {infoPatient && (
+            <Tabs value={infoTab} onValueChange={setInfoTab} className="w-full px-6 pb-2">
+              <TabsList className="mb-4">
+                <TabsTrigger value="info">Info & Doctor Notes</TabsTrigger>
+                <TabsTrigger value="billing">Billing History</TabsTrigger>
+              </TabsList>
+              <TabsContent value="info">
+                <div className="flex flex-col lg:flex-row gap-8">
+                  {/* Patient Details */}
+                  <Card className="flex-1 min-w-[280px] max-w-md bg-muted/60 border border-muted-foreground/10 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-lg tracking-tight">Patient Details</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                        <dt className="font-semibold text-muted-foreground">Name:</dt>
+                        <dd>{infoPatient.name}</dd>
+                        <dt className="font-semibold text-muted-foreground">Age:</dt>
+                        <dd>{infoPatient.age}</dd>
+                        <dt className="font-semibold text-muted-foreground">Sex:</dt>
+                        <dd>{infoPatient.sex || infoPatient.gender}</dd>
+                        <dt className="font-semibold text-muted-foreground">Mobile:</dt>
+                        <dd>{infoPatient.phone || infoPatient.mobile}</dd>
+                        <dt className="font-semibold text-muted-foreground">Place of Work:</dt>
+                        <dd>{infoPatient.placeOfWork}</dd>
+                        <dt className="font-semibold text-muted-foreground">Occupation:</dt>
+                        <dd>{infoPatient.occupation}</dd>
+                        <dt className="font-semibold text-muted-foreground">Condition:</dt>
+                        <dd>{infoPatient.condition}</dd>
+                        <dt className="font-semibold text-muted-foreground">Status:</dt>
+                        <dd>{infoPatient.status}</dd>
+                        <dt className="font-semibold text-muted-foreground">Last Visit:</dt>
+                        <dd>{infoPatient.lastVisit || infoPatient.date}</dd>
+                      </dl>
+                    </CardContent>
+                  </Card>
+                  {/* Doctor Notes Timeline */}
+                  <Card className="flex-[2] min-w-[340px] flex flex-col bg-background border border-primary/10 shadow-md relative p-2">
+                    <CardHeader>
+                      <CardTitle className="text-lg tracking-tight">Doctor Notes Timeline</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col gap-2 p-0">
+                      <ScrollArea className="max-h-[50vh] pr-2" viewportRef={infoTimelineRef}>
+                        <div className="relative flex flex-col gap-6 pl-6 pb-6">
+                          {/* Vertical timeline line */}
+                          <div className="absolute left-2 top-0 bottom-0 w-1 bg-primary/10 rounded-full" style={{zIndex:0}} />
+                          {(infoPatient.doctorsNotes && infoPatient.doctorsNotes[0] && infoPatient.doctorsNotes[0].length > 0) ? (
+                            [...infoPatient.doctorsNotes[0]]
+                              .sort((a, b) => new Date(a.date) - new Date(b.date))
+                              .map((note, idx, arr) => (
+                                <div
+                                  key={idx}
+                                  className="relative flex gap-4 items-start z-10"
+                                >
+                                  {/* Timeline dot */}
+                                  <div className="flex flex-col items-center">
+                                    <Avatar className={idx === arr.length-1 ? 'ring-2 ring-primary' : ''}>
+                                      <AvatarFallback>{(infoPatient.name || 'D')[0]}</AvatarFallback>
+                                    </Avatar>
+                                    {idx < arr.length-1 && <span className="w-1 h-8 bg-primary/20 mt-1 mb-1 rounded-full" />}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Badge variant={idx === arr.length-1 ? 'default' : 'secondary'}>{note.date}</Badge>
+                                      <span className="text-xs text-muted-foreground">Doctor</span>
+                                    </div>
+                                    <div className={"whitespace-pre-line text-base leading-relaxed " + (idx === arr.length-1 ? 'font-semibold' : '')}>{note.note}</div>
+                                  </div>
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-muted-foreground text-sm">No notes yet.</div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                      {/* Add Note Sticky Input */}
+                      <div className="border-t pt-3 mt-3 bg-card sticky bottom-0 z-20">
+                        <div className="flex gap-2 items-end">
+                          <Textarea
+                            className="flex-1"
+                            value={infoAnamnesis}
+                            rows={2}
+                            onChange={e => setInfoAnamnesis(e.target.value)}
+                            placeholder="Add a new doctor note..."
+                          />
+                          <Button size="sm" onClick={handleInfoSaveAnamnesis} disabled={infoLoading || !infoAnamnesis.trim()}>
+                            Add Note
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              <TabsContent value="billing">
+                {/* You can reuse the billing tab UI from patient-management.jsx here, using infoBilling state */}
+              </TabsContent>
+            </Tabs>
+          )}
+          <DialogFooter className="px-6 pb-6 pt-2">
+            <Button variant="outline" onClick={() => setInfoDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
