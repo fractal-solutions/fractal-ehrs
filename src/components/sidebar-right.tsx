@@ -36,9 +36,18 @@ import { useAuth } from "../context/AuthContext.jsx"
 import PatientStepperDialog from "@/pages/patients/patient-stepper-dialog"
 import { fetchPatients, addPatient, fetchPatientById, addDoctorNote, addProcedure } from "@/lib/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Table, TableHeader, TableHead, TableBody, TableCell, TableRow } from "@/components/ui/table"
 
 const PATIENTS_STORAGE_KEY = "fractal-ehrs-patients"
 const QUEUE_STORAGE_KEY = "fractal-ehrs-queue"
+
+const PROCEDURE_ROOMS = ["Room 1", "Room 2", "Room 3", "Room 4"];
+const PROCEDURE_OPTIONS = [
+  { label: "Consultation", value: "Consultation", cost: 500 },
+  { label: "X-Ray", value: "X-Ray", cost: 1500 },
+  { label: "Blood Test", value: "Blood Test", cost: 800 },
+  // ...add more as needed
+];
 
 function getStoredPatients() {
   try {
@@ -107,6 +116,7 @@ function PatientCard({
   onShowInfo,
   onStartProcedure,
   renderExtra,
+  onFinishProcedure,
 }: {
   patient: any
   status: "waiting" | "consulting" | "procedure"
@@ -116,6 +126,7 @@ function PatientCard({
   onShowInfo?: () => void
   onStartProcedure?: () => void
   renderExtra?: () => React.ReactNode
+  onFinishProcedure?: (patient: any) => void
 }) {
   const { user } = useAuth();
   return (
@@ -140,7 +151,7 @@ function PatientCard({
                 {(user && (user.role === "admin" || user.role === "doctor" || user.role === "assistant")) && (
                   <DropdownMenuItem onClick={onStartConsultation}>Start Consultation</DropdownMenuItem>
                 )}
-                <DropdownMenuItem onClick={onRemoveFromQueue}>Remove from Queue</DropdownMenuItem>
+                <DropdownMenuItem onClick={onRemoveFromQueue} variant="destructive">Remove from Queue</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Badge
@@ -168,7 +179,7 @@ function PatientCard({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={onShowInfo}>Consultation Details</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onStartProcedure}>Start Procedure</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onStartProcedure(patient)}>Start Procedure</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -186,63 +197,66 @@ function PatientCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onRemoveFromQueue}>Remove from Procedure Queue</DropdownMenuItem>
+                {onFinishProcedure && (
+                  <DropdownMenuItem onClick={() => onFinishProcedure(patient)}>
+                    Finish Procedure
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={onRemoveFromQueue} variant="destructive">Remove from Procedure Queue</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </>
         ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-1 px-3 -mt-6">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          {status === "waiting" ? (
-            <>
-              <span>Arrived: {patient.arrivedAt}</span>
-              <span>•</span>
-              <span>Wait: {patient.waitTime}</span>
-            </>
-          ) : status === "consulting" ? (
-            <>
-              <span>Started: {patient.startedAt}</span>
-              <span>•</span>
-              <span>{patient.estimatedDuration} left</span>
-            </>
-          ) : (
-            <>
-              <span>Started: {patient.startedAt}</span>
-              <span>•</span>
-              <span>{patient.estimatedDuration} left</span>
-            </>
-          )}
-          
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Users className="h-3 w-3" />
-          {status === "waiting" ? (
-            <>
-              <span>Age: {patient.age}</span>
-              <span>•</span>
-              <span>{patient.condition}</span>
-            </>
-          ) : status === "consulting" ? (
-            <>
-              <span>{patient.doctor}</span>
-              <span>•</span>
-              <span>{patient.room}</span>
-              <span>•</span>
-              <span>{patient.condition}</span>
-            </>
-          ) : (
-            <>
-              <span>{patient.doctor}</span>
-              <span>•</span>
-              <span>{patient.room}</span>
-              <span>•</span>
-              <span>{patient.condition}</span>
-            </>
-          )}
-        </div>
-        {renderExtra && renderExtra()}
+        {status === "procedure" ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Users className="h-3 w-3" />
+            <span>Dr. {patient.doctor}</span>
+            <span>•</span>
+            <span>{patient.procedureRoom}</span>
+            <span>•</span>
+            <span>{patient.procedureType}</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              {status === "waiting" ? (
+                <>
+                  <span>Arrived: {patient.arrivedAt}</span>
+                  <span>•</span>
+                  <span>Wait: {patient.waitTime}</span>
+                </>
+              ) : status === "consulting" ? (
+                <>
+                  <span>Started: {patient.startedAt}</span>
+                  <span>•</span>
+                  <span>{patient.estimatedDuration} left</span>
+                </>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Users className="h-3 w-3" />
+              {status === "waiting" ? (
+                <>
+                  <span>Age: {patient.age}</span>
+                  <span>•</span>
+                  <span>{patient.condition}</span>
+                </>
+              ) : status === "consulting" ? (
+                <>
+                  <span>{patient.doctor}</span>
+                  <span>•</span>
+                  <span>{patient.room}</span>
+                  <span>•</span>
+                  <span>{patient.condition}</span>
+                </>
+              ) : null}
+            </div>
+            {renderExtra && renderExtra()}
+          </>
+        )}
       </CardContent>
     </Card>
   )
@@ -267,6 +281,31 @@ export function SidebarRight({
   const [consultBilling, setConsultBilling] = React.useState<any[]>([]);
   const [consultTab, setConsultTab] = React.useState("info");
   const consultTimelineRef = React.useRef(null);
+
+  const [procedureDialogOpen, setProcedureDialogOpen] = React.useState(false);
+  const [procedureDialogPatient, setProcedureDialogPatient] = React.useState<any>(null);
+  const [procedureRoom, setProcedureRoom] = React.useState("");
+  const [procedureType, setProcedureType] = React.useState("");
+
+  const [finishProcedureDialogOpen, setFinishProcedureDialogOpen] = React.useState(false);
+  const [finishProcedurePatient, setFinishProcedurePatient] = React.useState<any>(null);
+  const [finishProcedureData, setFinishProcedureData] = React.useState({
+    date: new Date().toISOString().slice(0, 10),
+    procedure: "",
+    charges: "",
+    paid: "",
+    discount: "",
+  });
+
+  const [procedureQueue, setProcedureQueue] = React.useState<any[]>([]);
+
+  // Add state for previous balance
+  const [finishProcedurePreviousBalance, setFinishProcedurePreviousBalance] = React.useState(0);
+
+  const charge = parseFloat(finishProcedureData.charges) || 0;
+  const discount = parseFloat(finishProcedureData.discount) || 0;
+  const paid = parseFloat(finishProcedureData.paid) || 0;
+  const newBalance = finishProcedurePreviousBalance + (charge - discount) - paid;
 
   async function openConsultDialog(patientId: string) {
     setConsultLoading(true);
@@ -367,7 +406,6 @@ export function SidebarRight({
   const [infoBilling, setInfoBilling] = React.useState<any[]>([]);
   const [infoTab, setInfoTab] = React.useState("info");
   const infoTimelineRef = React.useRef(null);
-  const [procedureQueue, setProcedureQueue] = React.useState<any[]>([]);
 
   async function openInfoDialog(patientId: string) {
     setInfoLoading(true);
@@ -404,13 +442,80 @@ export function SidebarRight({
   }
 
   function handleStartProcedure(patient: any) {
-    const room = prompt("Enter procedure room number:");
-    if (!room) return;
-    setProcedureQueue(prev => [...prev, { ...patient, procedureRoom: room }]);
+    openProcedureDialog(patient);
+  }
+
+  function openProcedureDialog(patient: any) {
+    setProcedureDialogPatient(patient);
+    setProcedureRoom("");
+    setProcedureType("");
+    setProcedureDialogOpen(true);
+  }
+
+  async function handleConfirmProcedure() {
+    if (!procedureDialogPatient || !procedureRoom || !procedureType) return;
+    setProcedureQueue(prev => [
+      ...prev,
+      {
+        ...procedureDialogPatient,
+        procedureRoom,
+        procedureType,
+        doctor: user?.name || "Unknown",
+      },
+    ]);
+    // Remove from inConsultation
     setData(prev => ({
       ...prev,
-      inConsultation: prev.inConsultation.filter((p: any) => p.id !== patient.id),
+      inConsultation: prev.inConsultation.filter((p: any) => p.id !== procedureDialogPatient.id),
     }));
+    // Add doctor note for procedure start
+    await addDoctorNote(procedureDialogPatient.id, {
+      date: new Date().toISOString().slice(0, 10),
+      note: `Started procedure: ${procedureType} with Dr ${user?.name || "Unknown"}`,
+    });
+    setProcedureDialogOpen(false);
+    setConsultDialogOpen(false);
+  }
+
+  async function handleOpenFinishProcedure(patient) {
+    const fullPatient = await fetchPatientById(patient.id);
+    const billing = fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : [];
+    const prevBalance = billing.length > 0 ? parseFloat(billing[billing.length - 1].balance) || 0 : 0;
+    setFinishProcedurePreviousBalance(prevBalance);
+    setFinishProcedurePatient(patient);
+    setFinishProcedureData({
+      date: new Date().toISOString().slice(0, 10),
+      procedure: patient.procedureType || "",
+      charges: patient.procedureType ? (PROCEDURE_OPTIONS.find(opt => opt.value === patient.procedureType)?.cost || "") : "",
+      paid: "",
+      discount: "",
+    });
+    setFinishProcedureDialogOpen(true);
+  }
+
+  function handleFinishProcedureChange(field, value) {
+    if (field === "procedure") {
+      const selected = PROCEDURE_OPTIONS.find(opt => opt.value === value);
+      setFinishProcedureData(d => ({
+        ...d,
+        procedure: value,
+        charges: selected ? selected.cost : "",
+        discount: "",
+        paid: "",
+      }));
+    } else {
+      setFinishProcedureData(d => ({ ...d, [field]: value }));
+    }
+  }
+
+  async function handleSaveFinishProcedure() {
+    if (!finishProcedurePatient) return;
+    await addProcedure(finishProcedurePatient.id, {
+      ...finishProcedureData,
+      balance: (Number(finishProcedureData.charges) - Number(finishProcedureData.paid || 0) - Number(finishProcedureData.discount || 0)).toString(),
+    });
+    setProcedureQueue(prev => prev.filter(p => p.id !== finishProcedurePatient.id));
+    setFinishProcedureDialogOpen(false);
   }
 
   return (
@@ -480,8 +585,8 @@ export function SidebarRight({
                   key={patient.id}
                   patient={patient}
                   status="consulting"
-                  onShowInfo={() => openInfoDialog(patient.id)}
-                  onStartProcedure={() => handleStartProcedure(patient)}
+                  onShowInfo={() => openConsultDialog(patient.id)}
+                  onStartProcedure={handleStartProcedure}
                 />
               ))}
             </div>
@@ -505,13 +610,7 @@ export function SidebarRight({
                   patient={patient}
                   status="procedure"
                   onRemoveFromQueue={() => setProcedureQueue(prev => prev.filter(p => p.id !== patient.id))}
-                  renderExtra={() => (
-                    <div className="flex gap-2 text-xs text-muted-foreground">
-                      <span>Room: {patient.procedureRoom}</span>
-                      <span>•</span>
-                      <span>Doctor: {patient.doctor}</span>
-                    </div>
-                  )}
+                  onFinishProcedure={handleOpenFinishProcedure}
                 />
               ))}
             </div>
@@ -642,6 +741,14 @@ export function SidebarRight({
               </TabsList>
               <TabsContent value="info">
                 <div className="flex flex-col lg:flex-row gap-8">
+                  {/* Add Start Procedure button at the top right for admin/doctor */}
+                  {user && (user.role === "admin" || user.role === "doctor") && (
+                    <div className="absolute right-8 top-8 z-10">
+                      <Button className="mb-2" onClick={() => openProcedureDialog(consultPatient)}>
+                        Start Procedure
+                      </Button>
+                    </div>
+                  )}
                   {/* Patient Details */}
                   <Card className="flex-1 min-w-[280px] max-w-md bg-muted/60 border border-muted-foreground/10 shadow-sm">
                     <CardHeader>
@@ -707,6 +814,34 @@ export function SidebarRight({
                           ) : (
                             <div className="text-muted-foreground text-sm">No notes yet.</div>
                           )}
+                          {user && (user.role === "admin" || user.role === "doctor") && (
+                            <div className="relative flex gap-4 items-start z-10">
+                              {/* Timeline dot */}
+                              <div className="flex flex-col items-center">
+                                <Avatar className="ring-2 ring-primary bg-primary/10">
+                                  <AvatarFallback>
+                                    <span>+</span>
+                                  </AvatarFallback>
+                                </Avatar>
+                              </div>
+                              <div className="flex-1 flex flex-col gap-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="default">{new Date().toLocaleDateString()}</Badge>
+                                  <span className="text-xs text-muted-foreground">Action</span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  className="w-fit"
+                                  onClick={() => openProcedureDialog(consultPatient)}
+                                >
+                                  Start Procedure
+                                </Button>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Start a new procedure for this patient at this point in the consultation.
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </ScrollArea>
                       {/* Add Note Sticky Input */}
@@ -729,7 +864,45 @@ export function SidebarRight({
                 </div>
               </TabsContent>
               <TabsContent value="billing">
-                {/* You can reuse the billing tab UI from patient-management.jsx here, using consultBilling state */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Billing History</CardTitle>
+                  </CardHeader>
+                  <CardContent className="overflow-x-auto p-2">
+                    <ScrollArea className="max-h-[320px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Procedure</TableHead>
+                            <TableHead>Charges</TableHead>
+                            <TableHead>Paid</TableHead>
+                            <TableHead>Balance</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {consultBilling.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                No billing records.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            [...consultBilling].reverse().map((b, i) => (
+                              <TableRow key={i}>
+                                <TableCell>{b.date}</TableCell>
+                                <TableCell>{b.procedure}</TableCell>
+                                <TableCell>{b.charges}</TableCell>
+                                <TableCell>{b.paid}</TableCell>
+                                <TableCell>{b.balance}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           )}
@@ -842,13 +1015,161 @@ export function SidebarRight({
                 </div>
               </TabsContent>
               <TabsContent value="billing">
-                {/* You can reuse the billing tab UI from patient-management.jsx here, using infoBilling state */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Billing History</CardTitle>
+                  </CardHeader>
+                  <CardContent className="overflow-x-auto p-2">
+                    <ScrollArea className="max-h-[320px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Procedure</TableHead>
+                            <TableHead>Charges</TableHead>
+                            <TableHead>Paid</TableHead>
+                            <TableHead>Balance</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {infoBilling.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                No billing records.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            [...infoBilling].reverse().map((b, i) => (
+                              <TableRow key={i}>
+                                <TableCell>{b.date}</TableCell>
+                                <TableCell>{b.procedure}</TableCell>
+                                <TableCell>{b.charges}</TableCell>
+                                <TableCell>{b.paid}</TableCell>
+                                <TableCell>{b.balance}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           )}
           <DialogFooter className="px-6 pb-6 pt-2">
             <Button variant="outline" onClick={() => setInfoDialogOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Procedure Dialog */}
+      <Dialog open={procedureDialogOpen} onOpenChange={setProcedureDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start Procedure</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-2">
+            <div>
+              <label className="text-xs font-medium mb-1">Procedure Room/Unit</label>
+              <select
+                className="w-full border rounded-md px-2 py-2 h-10 text-sm"
+                value={procedureRoom}
+                onChange={e => setProcedureRoom(e.target.value)}
+              >
+                <option value="">Select Room</option>
+                {PROCEDURE_ROOMS.map(room => (
+                  <option key={room} value={room}>{room}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1">Procedure</label>
+              <select
+                className="w-full border rounded-md px-2 py-2 h-10 text-sm"
+                value={procedureType}
+                onChange={e => setProcedureType(e.target.value)}
+              >
+                <option value="">Select Procedure</option>
+                {PROCEDURE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleConfirmProcedure} disabled={!procedureRoom || !procedureType}>
+              Confirm
+            </Button>
+            <Button variant="outline" onClick={() => setProcedureDialogOpen(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finish Procedure Dialog */}
+      <Dialog open={finishProcedureDialogOpen} onOpenChange={setFinishProcedureDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Finish Procedure</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-2">
+            <Input
+              type="date"
+              value={finishProcedureData.date}
+              onChange={e => handleFinishProcedureChange("date", e.target.value)}
+              placeholder="Date"
+            />
+            <div>
+              <label className="text-xs font-medium mb-1">Procedure</label>
+              <select
+                className="w-full border rounded-md px-2 py-2 h-10 text-sm"
+                value={finishProcedureData.procedure}
+                onChange={e => handleFinishProcedureChange("procedure", e.target.value)}
+              >
+                <option value="">Select Procedure</option>
+                {PROCEDURE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <Input
+              type="number"
+              value={finishProcedureData.charges}
+              readOnly
+              placeholder="Charges"
+            />
+            <Input
+              type="number"
+              value={finishProcedureData.discount}
+              onChange={e => handleFinishProcedureChange("discount", e.target.value)}
+              placeholder="Discount"
+              min="0"
+              max={finishProcedureData.charges}
+            />
+            <Input
+              type="number"
+              value={finishProcedureData.paid}
+              onChange={e => handleFinishProcedureChange("paid", e.target.value)}
+              placeholder="Paid"
+              min="0"
+            />
+            <div className="text-xs text-muted-foreground">
+              Previous Balance: {finishProcedurePreviousBalance}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              New Balance: {isNaN(newBalance) ? "" : newBalance}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSaveFinishProcedure} disabled={!finishProcedureData.charges || !finishProcedureData.procedure}>
+              Save
+            </Button>
+            <Button variant="outline" onClick={() => setFinishProcedureDialogOpen(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
