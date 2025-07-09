@@ -25,10 +25,11 @@ export async function addPatient(patient) {
 }
 
 export async function addDoctorNote(patientId, note) {
+  const noteWithTimestamp = { ...note, timestamp: new Date().toISOString() };
   const res = await fetch(`${API_BASE}/patient/${patientId}/note`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(note),
+    body: JSON.stringify(noteWithTimestamp),
   });
   if (!res.ok) throw new Error("Failed to add note");
   return await res.json();
@@ -42,4 +43,21 @@ export async function addProcedure(patientId, procedure) {
   });
   if (!res.ok) throw new Error("Failed to add procedure");
   return await res.json();
+}
+
+export async function fetchProcedures() {
+  const res = await fetch(`${API_BASE}/procedures`);
+  if (!res.ok) throw new Error("Failed to fetch procedures");
+  return await res.json();
+}
+
+export async function updatePatient(patientId, data) {
+    const res = await fetch(`${API_BASE}/patient/${patientId}`,
+        {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        });
+    if (!res.ok) throw new Error("Failed to update patient");
+    return await res.json();
 } 

@@ -10,9 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useDebounce } from "@/hooks/use-debounce"
+import { Label } from "@/components/ui/label"
 
 const APPOINTMENTS_STORAGE_KEY = "fractal-ehrs-appointments"
-const PATIENTS_STORAGE_KEY = "fractal-ehrs-patients"
+import { fetchPatients } from "@/lib/api"
+
 const doctors = [
   { id: "dr-andrews", name: "Dr. Andrews" },
   { id: "dr-martinez", name: "Dr. Martinez" },
@@ -22,15 +26,6 @@ const doctors = [
 const START_HOUR = 7
 const END_HOUR = 19
 const SLOT_MINUTES = 15
-
-function getStoredPatients() {
-  try {
-    const stored = localStorage.getItem(PATIENTS_STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
 
 function generateTimeSlots(startHour, endHour, slotMinutes, baseDate = new Date()) {
   const slots = []
@@ -138,8 +133,25 @@ export default function Appointments() {
   const selectedDateStr = format(selected && selected instanceof Date && !isNaN(selected) ? selected : new Date(), "yyyy-MM-dd")
   const [scrollKey, setScrollKey] = useState(0)
   const [activeDrag, setActiveDrag] = useState(null)
-  const [patients, setPatients] = useState(getStoredPatients())
+  const [patients, setPatients] = useState([]) // Initialize as empty
   const [patientSearch, setPatientSearch] = useState("")
+  const debouncedPatientSearch = useDebounce(patientSearch, 300)
+  const [selectedPatientId, setSelectedPatientId] = useState(null)
+  const [selectedPatientPhone, setSelectedPatientPhone] = useState("")
+
+  // Fetch patients on component mount
+  useEffect(() => {
+    async function getPatients() {
+      try {
+        const data = await fetchPatients()
+        setPatients(data)
+      } catch (error) {
+        console.error("Failed to fetch patients:", error)
+        // Optionally, handle error state in UI
+      }
+    }
+    getPatients()
+  }, [])
 
   // Find a booking that covers this slot (including multi-slot bookings)
   function getBookingForSlot(doctorId, slot) {
@@ -202,6 +214,8 @@ export default function Appointments() {
         {
           time: format(bookingSlot, "HH:mm"),
           patient: patientName.trim(),
+          patientId: selectedPatientId,
+          patientPhone: selectedPatientPhone,
           status: "pending",
           date: selectedDateStr,
           duration,
@@ -522,32 +536,37 @@ export default function Appointments() {
 
       {/* Booking Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="sm:max-w-[425px] bg-background shadow-lg rounded-lg p-6">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-2xl font-bold text-center">
               Book Appointment for {bookingDoctor && doctors.find(d => d.id === bookingDoctor)?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div>
-              <span className="font-semibold">Time: </span>
-              {bookingSlot && format(bookingSlot, "hh:mm a")}
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="time" className="text-right">Time:</Label>
+              <div id="time" className="col-span-3">{bookingSlot && format(bookingSlot, "hh:mm a")}</div>
             </div>
-            <div>
-              <span className="font-semibold">Duration: </span>
-              <select
-                className="border rounded px-2 py-1 ml-2"
-                value={duration}
-                onChange={e => setDuration(Number(e.target.value))}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="duration" className="text-right">Duration:</Label>
+              <Select
+                value={String(duration)}
+                onValueChange={(value) => setDuration(Number(value))}
               >
-                {[15, 30, 45, 60].map(mins => (
-                  <option key={mins} value={mins}>{mins} min</option>
-                ))}
-              </select>
+                <SelectTrigger id="duration" className="col-span-3">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[15, 30, 45, 60].map(mins => (
+                    <SelectItem key={mins} value={String(mins)}>{mins} min</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            {/* Patient name search */}
-            <div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="patient-search" className="text-right">Patient:</Label>
               <Input
+                id="patient-search"
                 placeholder="Search or enter patient name"
                 value={patientSearch || patientName}
                 onChange={e => {
@@ -555,119 +574,149 @@ export default function Appointments() {
                   setPatientName(e.target.value)
                 }}
                 autoFocus
+                className="col-span-3"
               />
-              {patientSearch.length > 0 && (
-                <div className="border rounded bg-background mt-1 max-h-32 overflow-y-auto shadow">
+            </div>
+            {patientSearch.length > 0 && (
+                <div className="col-span-1 border rounded bg-background mt-1 max-h-32 overflow-y-auto shadow">
                   {patients
                     .filter(
                       p =>
-                        p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
-                        p.mobile?.includes(patientSearch)
+                        p.name.toLowerCase().includes(debouncedPatientSearch.toLowerCase()) ||
+                        p.mobile?.includes(debouncedPatientSearch)
                     )
-                    .slice(0, 5)
-                    .map(p => (
-                      <div
-                        key={p.id}
-                        className="px-3 py-1 hover:bg-muted cursor-pointer text-sm"
-                        onClick={() => {
-                          setPatientName(p.name)
-                          setPatientSearch("")
-                        }}
-                      >
-                        {p.name} <span className="text-xs text-muted-foreground">({p.mobile})</span>
-                      </div>
-                    ))}
-                </div>
-              )}
+                  .slice(0, 5)
+                  .map(p => (
+                    <div
+                      key={p.id}
+                      className="px-3 py-1 hover:bg-muted cursor-pointer text-sm"
+                      onClick={() => {
+                        setPatientName(p.name)
+                        setSelectedPatientId(p.id)
+                        setSelectedPatientPhone(p.mobile || p.phone || "")
+                        setPatientSearch("")
+                      }}
+                    >
+                      {p.name} <span className="text-xs text-muted-foreground">({p.mobile || p.phone})</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">Reason:</Label>
+              <Input
+                id="description"
+                placeholder="Reason for visit"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                className="col-span-3"
+              />
             </div>
-            <Input
-              placeholder="Reason for visit"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
             {!isSlotRangeAvailable(bookingDoctor, bookingSlot, duration) && (
-              <div className="text-sm text-destructive">
+              <div className="col-span-4 text-sm text-destructive text-center">
                 Selected time range overlaps with another booking.
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button
-              onClick={handleAddBooking}
-              disabled={
-                !patientName.trim() ||
-                !duration ||
-                !isSlotRangeAvailable(bookingDoctor, bookingSlot, duration)
-              }
-            >
-              Confirm Booking
-            </Button>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                Cancel
-              </Button>
-            </DialogClose>
+          <DialogFooter className="flex justify-end gap-2 mt-6">
+            <><Button
+                  onClick={handleAddBooking}
+                  disabled={!patientName.trim() ||
+                    !duration ||
+                    !isSlotRangeAvailable(bookingDoctor, bookingSlot, duration)}
+                >
+                  Confirm Booking
+                </Button><DialogClose asChild>
+                    <Button variant="outline" type="button">
+                      Cancel
+                    </Button>
+                  </DialogClose></>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Booking Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-            <DialogContent>
-            <DialogHeader>
-                <DialogTitle>
+            <DialogContent className="sm:max-w-[425px] bg-background shadow-lg rounded-lg p-6">
+            <DialogHeader className="mb-4">
+                <DialogTitle className="text-2xl font-bold text-center">
                 Edit Booking for {editDoctorId && doctors.find(d => d.id === editDoctorId)?.name}
                 </DialogTitle>
             </DialogHeader>
-            <div className="flex flex-col gap-4 py-2">
-                <div>
-                <span className="font-semibold">Time: </span>
-                {editBooking && editBooking.time}
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="time" className="text-right">Time:</Label>
+                    <div id="time" className="col-span-3">{editBooking && editBooking.time}</div>
                 </div>
-                <div>
-                <span className="font-semibold">Duration: </span>
-                <select
-                    className="border rounded px-2 py-1 ml-2"
-                    value={editDuration}
-                    onChange={e => setEditDuration(Number(e.target.value))}
-                >
-                    {[15, 30, 45, 60].map(mins => (
-                    <option key={mins} value={mins}>{mins} min</option>
-                    ))}
-                </select>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="patient-name" className="text-right">Patient:</Label>
+                    <Input
+                        id="patient-name"
+                        value={editPatientName}
+                        onChange={e => setEditPatientName(e.target.value)}
+                        className="col-span-3"
+                    />
                 </div>
-                <Input
-                placeholder="Patient name"
-                value={editPatientName}
-                onChange={e => setEditPatientName(e.target.value)}
-                onKeyDown={e => {
-                    if (e.key === "Enter") handleEditBookingSave()
-                }}
-                />
-                <Input
-                placeholder="Reason for visit"
-                value={editDescription}
-                onChange={e => setEditDescription(e.target.value)}
-                />
-                <div>
-                <span className="font-semibold">Status: </span>
-                <select
-                    className="border rounded px-2 py-1 ml-2"
-                    value={editStatus}
-                    onChange={e => setEditStatus(e.target.value)}
-                >
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
+                {editBooking && editBooking.patientPhone && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="patient-phone" className="text-right">Phone:</Label>
+                        <Input
+                            id="patient-phone"
+                            value={editBooking.patientPhone}
+                            readOnly
+                            className="col-span-3 text-muted-foreground"
+                        />
+                    </div>
+                )}
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="duration" className="text-right">Duration:</Label>
+                    <Select
+                        value={String(editDuration)}
+                        onValueChange={(value) => setEditDuration(Number(value))}
+                    >
+                        <SelectTrigger id="duration" className="col-span-3">
+                            <SelectValue placeholder="Select duration" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {[15, 30, 45, 60].map(mins => (
+                                <SelectItem key={mins} value={String(mins)}>{mins} min</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="description" className="text-right">Reason:</Label>
+                    <Input
+                        id="description"
+                        placeholder="Reason for visit"
+                        value={editDescription}
+                        onChange={e => setEditDescription(e.target.value)}
+                        className="col-span-3"
+                    />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="status" className="text-right">Status:</Label>
+                    <Select
+                        value={editStatus}
+                        onValueChange={(value) => setEditStatus(value)}
+                    >
+                        <SelectTrigger id="status" className="col-span-3">
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 {!isSlotRangeAvailable(editDoctorId, editBooking && setMinutes(setHours(selected, Number(editBooking.time.split(":")[0])), Number(editBooking.time.split(":")[1])), editDuration, editBooking) && (
-                <div className="text-sm text-destructive">
-                    Selected time range overlaps with another booking.
-                </div>
+                    <div className="col-span-4 text-sm text-destructive text-center">
+                        Selected time range overlaps with another booking.
+                    </div>
                 )}
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex justify-end gap-2 mt-6">
                 <Button
                 onClick={handleEditBookingSave}
                 disabled={

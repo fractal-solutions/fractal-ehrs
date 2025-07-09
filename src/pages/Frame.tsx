@@ -15,6 +15,11 @@ import {
 import { BrowserRouter, Routes, Route, Router } from 'react-router-dom'
 import Appointments from "@/pages/appointments/doctors-appointments"
 import PatientManagement from "@/pages/patients/patient-management"
+import ProcedureManagement from "@/pages/procedures/procedure-management"
+import StockControl from "@/pages/inventory/stock-control"
+import SupplierManagement from "@/pages/inventory/supplier-management"
+import DeliveryNotes from "@/pages/inventory/delivery-notes"
+import PurchaseOrders from "@/pages/inventory/purchase-orders"
 
 
 export default function Page({ onShowRegister }: { onShowRegister?: () => void }) {
@@ -50,8 +55,13 @@ export default function Page({ onShowRegister }: { onShowRegister?: () => void }
             <Route path="/" element={<div className="text-center text-2xl">Welcome to Fractal EHRS</div>} />
             <Route path="/patients" element={<PatientManagement />} />
             <Route path="/appointments" element={<Appointments />} />
+            <Route path="/procedures" element={<ProcedureManagement />} />
             <Route path="/billing" element={<div className="text-center text-2xl">Billing and Insurance</div>} />
             <Route path="/reports" element={<div className="text-center text-2xl">Reports and Analytics</div>} />
+            <Route path="/inventory" element={<StockControl />} />
+            <Route path="/inventory/suppliers" element={<SupplierManagement />} />
+            <Route path="/inventory/delivery-notes" element={<DeliveryNotes />} />
+            <Route path="/inventory/purchase-orders" element={<PurchaseOrders />} />
           </Routes>
         </div>
       </SidebarInset>

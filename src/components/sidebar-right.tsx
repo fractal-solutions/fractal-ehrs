@@ -37,17 +37,21 @@ import PatientStepperDialog from "@/pages/patients/patient-stepper-dialog"
 import { fetchPatients, addPatient, fetchPatientById, addDoctorNote, addProcedure } from "@/lib/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Table, TableHeader, TableHead, TableBody, TableCell, TableRow } from "@/components/ui/table"
+import { DentalFormula } from "@/components/dental-formula"
 
 const PATIENTS_STORAGE_KEY = "fractal-ehrs-patients"
 const QUEUE_STORAGE_KEY = "fractal-ehrs-queue"
 
 const PROCEDURE_ROOMS = ["Room 1", "Room 2", "Room 3", "Room 4"];
-const PROCEDURE_OPTIONS = [
-  { label: "Consultation", value: "Consultation", cost: 500 },
-  { label: "X-Ray", value: "X-Ray", cost: 1500 },
-  { label: "Blood Test", value: "Blood Test", cost: 800 },
-  // ...add more as needed
-];
+
+const getStoredProcedures = () => {
+  try {
+    const stored = localStorage.getItem('fractal-ehrs-procedures');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
 
 function getStoredPatients() {
   try {
@@ -301,6 +305,11 @@ export function SidebarRight({
   });
 
   const [procedureQueue, setProcedureQueue] = React.useState<any[]>([]);
+  const [procedureOptions, setProcedureOptions] = React.useState([]);
+
+  React.useEffect(() => {
+    setProcedureOptions(getStoredProcedures());
+  }, []);
 
   // Add state for previous balance
   const [finishProcedurePreviousBalance, setFinishProcedurePreviousBalance] = React.useState(0);
@@ -338,10 +347,7 @@ export function SidebarRight({
       });
       const fullPatient = await fetchPatientById(consultPatient.id);
       setConsultPatient(fullPatient);
-      setConsultAnamnesis((fullPatient.doctorsNotes && fullPatient.doctorsNotes[0] && fullPatient.doctorsNotes[0].length > 0)
-        ? fullPatient.doctorsNotes[0][fullPatient.doctorsNotes[0].length - 1].note
-        : "");
-      setConsultBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : []);
+      setConsultAnamnesis(""); // Clear the input after saving
     } finally {
       setConsultLoading(false);
     }
@@ -438,10 +444,7 @@ export function SidebarRight({
       });
       const fullPatient = await fetchPatientById(infoPatient.id);
       setInfoPatient(fullPatient);
-      setInfoAnamnesis((fullPatient.doctorsNotes && fullPatient.doctorsNotes[0] && fullPatient.doctorsNotes[0].length > 0)
-        ? fullPatient.doctorsNotes[0][fullPatient.doctorsNotes[0].length - 1].note
-        : "");
-      setInfoBilling(fullPatient.procedures && fullPatient.procedures[0] ? fullPatient.procedures[0] : []);
+      setInfoAnamnesis(""); // Clear the input after saving
     } finally {
       setInfoLoading(false);
     }
@@ -452,6 +455,7 @@ export function SidebarRight({
   }
 
   function openProcedureDialog(patient: any) {
+    setProcedureOptions(getStoredProcedures());
     setProcedureDialogPatient(patient);
     setProcedureRoom("");
     setProcedureType("");
@@ -492,7 +496,7 @@ export function SidebarRight({
     setFinishProcedureData({
       date: new Date().toISOString().slice(0, 10),
       procedure: patient.procedureType || "",
-      charges: patient.procedureType ? (PROCEDURE_OPTIONS.find(opt => opt.value === patient.procedureType)?.cost || "") : "",
+      charges: patient.procedureType ? (procedureOptions.find(opt => opt.value === patient.procedureType)?.cost || "") : "",
       paid: "",
       discount: "",
     });
@@ -501,7 +505,7 @@ export function SidebarRight({
 
   function handleFinishProcedureChange(field, value) {
     if (field === "procedure") {
-      const selected = PROCEDURE_OPTIONS.find(opt => opt.value === value);
+      const selected = procedureOptions.find(opt => opt.value === value);
       setFinishProcedureData(d => ({
         ...d,
         procedure: value,
@@ -756,73 +760,69 @@ export function SidebarRight({
                       </Button>
                     </div>
                   )}
+{/* (removed erroneous import statements here) */}
+
                   {/* Patient Details */}
-                  <Card className="flex-1 min-w-[280px] max-w-md bg-muted/60 border border-muted-foreground/10 shadow-sm">
-                    <CardHeader>
-                      <CardTitle className="text-lg tracking-tight">Patient Details</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-                        <dt className="font-semibold text-muted-foreground">Name:</dt>
-                        <dd>{consultPatient.name}</dd>
-                        <dt className="font-semibold text-muted-foreground">Age:</dt>
-                        <dd>{consultPatient.age}</dd>
-                        <dt className="font-semibold text-muted-foreground">Sex:</dt>
-                        <dd>{consultPatient.sex || consultPatient.gender}</dd>
-                        <dt className="font-semibold text-muted-foreground">Mobile:</dt>
-                        <dd>{consultPatient.phone || consultPatient.mobile}</dd>
-                        <dt className="font-semibold text-muted-foreground">Place of Work:</dt>
-                        <dd>{consultPatient.placeOfWork}</dd>
-                        <dt className="font-semibold text-muted-foreground">Occupation:</dt>
-                        <dd>{consultPatient.occupation}</dd>
-                        <dt className="font-semibold text-muted-foreground">Condition:</dt>
-                        <dd>{consultPatient.condition}</dd>
-                        <dt className="font-semibold text-muted-foreground">Status:</dt>
-                        <dd>{consultPatient.status}</dd>
-                        <dt className="font-semibold text-muted-foreground">Last Visit:</dt>
-                        <dd>{consultPatient.lastVisit || consultPatient.date}</dd>
-                      </dl>
-                    </CardContent>
-                  </Card>
+                  <div className="flex-1 min-w-[280px] max-w-md">
+                    <Card className="bg-muted/60 border border-muted-foreground/10 shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-lg tracking-tight">Patient Details</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                          <dt className="font-semibold text-muted-foreground">Name:</dt>
+                          <dd>{consultPatient.name}</dd>
+                          <dt className="font-semibold text-muted-foreground">Age:</dt>
+                          <dd>{consultPatient.age}</dd>
+                          <dt className="font-semibold text-muted-foreground">Sex:</dt>
+                          <dd>{consultPatient.sex || consultPatient.gender}</dd>
+                          <dt className="font-semibold text-muted-foreground">Mobile:</dt>
+                          <dd>{consultPatient.phone || consultPatient.mobile}</dd>
+                          <dt className="font-semibold text-muted-foreground">Condition:</dt>
+                          <dd>{consultPatient.condition}</dd>
+                          <dt className="font-semibold text-muted-foreground">Status:</dt>
+                          <dd>{consultPatient.status}</dd>
+                          <dt className="font-semibold text-muted-foreground">Last Visit:</dt>
+                          <dd>{consultPatient.lastVisit || consultPatient.date}</dd>
+                        </dl>
+                      </CardContent>
+                    </Card>
+                    <DentalFormula
+                      initialFormula={consultPatient.dentalFormula}
+                      onFormulaChange={(newFormula) => {
+                        const updatedPatient = { ...consultPatient, dentalFormula: newFormula };
+                        setConsultPatient(updatedPatient);
+                        updatePatient(consultPatient.id, { dentalFormula: newFormula });
+                      }}
+                    />
+                  </div>
                   {/* Doctor Notes Timeline */}
                   <Card className="flex-[2] min-w-[340px] flex flex-col bg-background border border-primary/10 shadow-md relative p-2">
                     <CardHeader>
                       <CardTitle className="text-lg tracking-tight">Doctor Notes Timeline</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col gap-2 p-0">
+                      {/* Add Note Input */}
+                      <div className="border-b pb-3 mb-3 bg-card sticky top-0 z-20">
+                        <div className="flex gap-2 items-end">
+                          <Textarea
+                            className="flex-1"
+                            value={consultAnamnesis}
+                            rows={2}
+                            onChange={e => setConsultAnamnesis(e.target.value)}
+                            placeholder="Add a new doctor note..."
+                          />
+                          <Button size="sm" onClick={handleConsultSaveAnamnesis} disabled={consultLoading || !consultAnamnesis.trim()}>
+                            Add Note
+                          </Button>
+                        </div>
+                      </div>
                       <ScrollArea className="max-h-[50vh] pr-2" viewportRef={consultTimelineRef}>
                         <div className="relative flex flex-col gap-6 pl-6 pb-6">
                           {/* Vertical timeline line */}
                           <div className="absolute left-2 top-0 bottom-0 w-1 bg-primary/10 rounded-full" style={{zIndex:0}} />
-                          {(consultPatient.doctorsNotes && consultPatient.doctorsNotes[0] && consultPatient.doctorsNotes[0].length > 0) ? (
-                            [...consultPatient.doctorsNotes[0]]
-                              .sort((a, b) => new Date(a.date) - new Date(b.date))
-                              .map((note, idx, arr) => (
-                                <div
-                                  key={idx}
-                                  className="relative flex gap-4 items-start z-10"
-                                >
-                                  {/* Timeline dot */}
-                                  <div className="flex flex-col items-center">
-                                    <Avatar className={idx === arr.length-1 ? 'ring-2 ring-primary' : ''}>
-                                      <AvatarFallback>{(consultPatient.name || 'D')[0]}</AvatarFallback>
-                                    </Avatar>
-                                    {idx < arr.length-1 && <span className="w-1 h-8 bg-primary/20 mt-1 mb-1 rounded-full" />}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Badge variant={idx === arr.length-1 ? 'default' : 'secondary'}>{note.date}</Badge>
-                                      <span className="text-xs text-muted-foreground">Doctor</span>
-                                    </div>
-                                    <div className={"whitespace-pre-line text-base leading-relaxed " + (idx === arr.length-1 ? 'font-semibold' : '')}>{note.note}</div>
-                                  </div>
-                                </div>
-                              ))
-                          ) : (
-                            <div className="text-muted-foreground text-sm">No notes yet.</div>
-                          )}
                           {user && (user.role === "admin" || user.role === "doctor") && (
-                            <div className="relative flex gap-4 items-start z-10">
+                            <div className="relative flex gap-4 items-start z-10 pt-4">
                               {/* Timeline dot */}
                               <div className="flex flex-col items-center">
                                 <Avatar className="ring-2 ring-primary bg-primary/10">
@@ -849,23 +849,52 @@ export function SidebarRight({
                               </div>
                             </div>
                           )}
+                          {(consultPatient.doctorsNotes && consultPatient.doctorsNotes[0] && consultPatient.doctorsNotes[0].length > 0) ? (
+                            Object.entries(consultPatient.doctorsNotes[0].reduce((acc, note) => {
+                              const date = note.date;
+                              if (!acc[date]) {
+                                acc[date] = [];
+                              }
+                              acc[date].push(note);
+                              return acc;
+                            }, {})).sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
+                              .map(([date, notesForDay]) => (
+                                <div key={date} className="relative flex flex-col gap-3 pl-6 pb-3">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="default">{date}</Badge>
+                                  </div>
+                                  {notesForDay.sort((a, b) => {
+                                    const timestampA = new Date(a.timestamp).getTime();
+                                    const timestampB = new Date(b.timestamp).getTime();
+                                    return timestampB - timestampA;
+                                  }).map((note, idx, arr) => (
+                                    <div
+                                      key={note.timestamp || idx}
+                                      className="relative flex gap-2 items-start z-10"
+                                    >
+                                      {/* Timeline dot */}
+                                      <div className="flex flex-col items-center">
+                                        <Avatar className={idx === 0 ? 'ring-2 ring-primary' : ''}>
+                                          <AvatarFallback>{(consultPatient.name || 'D')[0]}</AvatarFallback>
+                                        </Avatar>
+                                        {idx < arr.length - 1 && <span className="w-1 h-8 bg-primary/20 mt-1 mb-1 rounded-full" />}
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">{new Date(note.timestamp).toLocaleTimeString()}</span>
+                                          <span className="text-xs text-muted-foreground">Doctor</span>
+                                        </div>
+                                        <div className={"whitespace-pre-line text-base leading-relaxed " + (idx === 0 ? 'font-semibold' : '')}>{note.note}</div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-muted-foreground text-sm">No notes yet.</div>
+                          )}
                         </div>
                       </ScrollArea>
-                      {/* Add Note Sticky Input */}
-                      <div className="border-t pt-3 mt-3 bg-card sticky bottom-0 z-20">
-                        <div className="flex gap-2 items-end">
-                          <Textarea
-                            className="flex-1"
-                            value={consultAnamnesis}
-                            rows={2}
-                            onChange={e => setConsultAnamnesis(e.target.value)}
-                            placeholder="Add a new doctor note..."
-                          />
-                          <Button size="sm" onClick={handleConsultSaveAnamnesis} disabled={consultLoading || !consultAnamnesis.trim()}>
-                            Add Note
-                          </Button>
-                        </div>
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -969,32 +998,64 @@ export function SidebarRight({
                       <CardTitle className="text-lg tracking-tight">Doctor Notes Timeline</CardTitle>
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col gap-2 p-0">
+                      {/* Add Note Input */}
+                      <div className="border-b pb-3 mb-3 bg-card sticky top-0 z-20">
+                        <div className="flex gap-2 items-end">
+                          <Textarea
+                            className="flex-1"
+                            value={infoAnamnesis}
+                            rows={8}
+                            onChange={e => setInfoAnamnesis(e.target.value)}
+                            placeholder="Procedure Notes:\n\nRX:"
+                          />
+                          <Button size="sm" onClick={handleInfoSaveAnamnesis} disabled={infoLoading || !infoAnamnesis.trim()}>
+                            Add Note
+                          </Button>
+                        </div>
+                      </div>
                       <ScrollArea className="max-h-[50vh] pr-2" viewportRef={infoTimelineRef}>
                         <div className="relative flex flex-col gap-6 pl-6 pb-6">
                           {/* Vertical timeline line */}
                           <div className="absolute left-2 top-0 bottom-0 w-1 bg-primary/10 rounded-full" style={{zIndex:0}} />
                           {(infoPatient.doctorsNotes && infoPatient.doctorsNotes[0] && infoPatient.doctorsNotes[0].length > 0) ? (
-                            [...infoPatient.doctorsNotes[0]]
-                              .sort((a, b) => new Date(a.date) - new Date(b.date))
-                              .map((note, idx, arr) => (
-                                <div
-                                  key={idx}
-                                  className="relative flex gap-4 items-start z-10"
-                                >
-                                  {/* Timeline dot */}
-                                  <div className="flex flex-col items-center">
-                                    <Avatar className={idx === arr.length-1 ? 'ring-2 ring-primary' : ''}>
-                                      <AvatarFallback>{(infoPatient.name || 'D')[0]}</AvatarFallback>
-                                    </Avatar>
-                                    {idx < arr.length-1 && <span className="w-1 h-8 bg-primary/20 mt-1 mb-1 rounded-full" />}
+                            Object.entries(infoPatient.doctorsNotes[0].reduce((acc, note) => {
+                              const date = note.date;
+                              if (!acc[date]) {
+                                acc[date] = [];
+                              }
+                              acc[date].push(note);
+                              return acc;
+                            }, {})).sort(([dateA], [dateB]) => new Date(dateB).getTime() - new Date(dateA).getTime())
+                              .map(([date, notesForDay]) => (
+                                <div key={date} className="relative flex flex-col gap-3 pl-6 pb-3">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="default">{date}</Badge>
                                   </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Badge variant={idx === arr.length-1 ? 'default' : 'secondary'}>{note.date}</Badge>
-                                      <span className="text-xs text-muted-foreground">Doctor</span>
+                                  {notesForDay.sort((a, b) => {
+                                    const timestampA = new Date(a.timestamp).getTime();
+                                    const timestampB = new Date(b.timestamp).getTime();
+                                    return timestampB - timestampA;
+                                  }).map((note, idx, arr) => (
+                                    <div
+                                      key={note.timestamp || idx}
+                                      className="relative flex gap-2 items-start z-10"
+                                    >
+                                      {/* Timeline dot */}
+                                      <div className="flex flex-col items-center">
+                                        <Avatar className={idx === 0 ? 'ring-2 ring-primary' : ''}>
+                                          <AvatarFallback>{(infoPatient.name || 'D')[0]}</AvatarFallback>
+                                        </Avatar>
+                                        {idx < arr.length - 1 && <span className="w-1 h-8 bg-primary/20 mt-1 mb-1 rounded-full" />}
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-muted-foreground">{new Date(note.timestamp).toLocaleTimeString()}</span>
+                                          <span className="text-xs text-muted-foreground">Doctor</span>
+                                        </div>
+                                        <div className={"whitespace-pre-line text-base leading-relaxed " + (idx === 0 ? 'font-semibold' : '')}>{note.note}</div>
+                                      </div>
                                     </div>
-                                    <div className={"whitespace-pre-line text-base leading-relaxed " + (idx === arr.length-1 ? 'font-semibold' : '')}>{note.note}</div>
-                                  </div>
+                                  ))}
                                 </div>
                               ))
                           ) : (
@@ -1002,21 +1063,6 @@ export function SidebarRight({
                           )}
                         </div>
                       </ScrollArea>
-                      {/* Add Note Sticky Input */}
-                      <div className="border-t pt-3 mt-3 bg-card sticky bottom-0 z-20">
-                        <div className="flex gap-2 items-end">
-                          <Textarea
-                            className="flex-1"
-                            value={infoAnamnesis}
-                            rows={2}
-                            onChange={e => setInfoAnamnesis(e.target.value)}
-                            placeholder="Add a new doctor note..."
-                          />
-                          <Button size="sm" onClick={handleInfoSaveAnamnesis} disabled={infoLoading || !infoAnamnesis.trim()}>
-                            Add Note
-                          </Button>
-                        </div>
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1113,7 +1159,7 @@ export function SidebarRight({
                 onChange={e => setProcedureType(e.target.value)}
               >
                 <option value="">Select Procedure</option>
-                {PROCEDURE_OPTIONS.map(opt => (
+                {procedureOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
@@ -1151,7 +1197,7 @@ export function SidebarRight({
                 onChange={e => handleFinishProcedureChange("procedure", e.target.value)}
               >
                 <option value="">Select Procedure</option>
-                {PROCEDURE_OPTIONS.map(opt => (
+                {procedureOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>

@@ -16,6 +16,10 @@ import {
   ListChecks,
   Banknote,
   User2,
+  Package,
+  Truck,
+  ShoppingCart,
+  Users,
 } from "lucide-react"
 
 import { NavFavorites } from "@/components/nav-favorites"
@@ -78,9 +82,41 @@ const data = {
       icon: User2,
     },
     {
+      title: "Procedures",
+      url: "/procedures",
+      icon: Blocks,
+    },
+    {
       title: "Billing",
       url: "/billing",
       icon: Banknote,
+    },
+    {
+      title: "Inventory",
+      url: "/inventory",
+      icon: Package,
+      children: [
+        {
+          title: "Stock Control",
+          url: "/inventory",
+          icon: Package,
+        },
+        {
+          title: "Supplier Management",
+          url: "/inventory/suppliers",
+          icon: Users,
+        },
+        {
+          title: "Delivery Notes",
+          url: "/inventory/delivery-notes",
+          icon: Truck,
+        },
+        {
+          title: "Purchase Orders",
+          url: "/inventory/purchase-orders",
+          icon: ShoppingCart,
+        },
+      ],
     },
     {
       title: "Reports",
